@@ -1,0 +1,2072 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Oberlab - a turbofan that assembles itself and spools to full thrust as you scroll. Procedural WebGL, no video.">
+<title>Turbofan Spool-Up</title>
+<link rel="canonical" href="https://lumsrouge.github.io/oberlab-turbofan-scroll/">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#05070c">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Oberlab — Cinematic Turbofan Scroll">
+<meta property="og:description" content="A procedural turbofan assembles, lights off, and spools to full thrust as you scroll.">
+<meta property="og:url" content="https://lumsrouge.github.io/oberlab-turbofan-scroll/">
+<meta property="og:image" content="https://lumsrouge.github.io/oberlab-turbofan-scroll/preview.webp">
+<meta property="og:image:alt" content="A procedural turbofan engine assembling in a cinematic night hangar">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --void:#05070C;
+    --line:#1C2736;
+    --steel:#6C7C90;
+    --paper:#DCE4EE;
+    --key:#7FB6FF;
+    --burn:#E8913C;
+    --ff-display:"Archivo","Helvetica Neue",Arial,sans-serif;
+    --ff-mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Consolas,monospace;
+    --bar:0px;            /* letterbox bar height, set from JS */
+  }
+  *,*::before,*::after{box-sizing:border-box}
+  body{
+    margin:0;background:var(--void);color:var(--paper);
+    font-family:var(--ff-display);font-size:16px;line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+  }
+  ::selection{background:var(--key);color:var(--void)}
+  :focus-visible{outline:2px solid var(--key);outline-offset:3px}
+
+  .stage{position:fixed;inset:0;z-index:0}
+  .stage canvas{display:block;width:100%;height:100%}
+
+  /* ---------- viewfinder frame ---------- */
+  .frame{position:fixed;left:20px;right:20px;top:calc(var(--bar) + 18px);
+    bottom:calc(var(--bar) + 18px);z-index:3;pointer-events:none}
+  .frame span{position:absolute;width:13px;height:13px;border:1px solid var(--line)}
+  .frame span:nth-child(1){top:0;left:0;border-right:0;border-bottom:0}
+  .frame span:nth-child(2){top:0;right:0;border-left:0;border-bottom:0}
+  .frame span:nth-child(3){bottom:0;left:0;border-right:0;border-top:0}
+  .frame span:nth-child(4){bottom:0;right:0;border-left:0;border-top:0}
+
+  /* ---------- HUD ---------- */
+  .hud{position:fixed;z-index:4;pointer-events:none;
+    font-family:var(--ff-mono);font-size:11px;letter-spacing:.08em;
+    font-variant-numeric:tabular-nums;color:var(--steel)}
+  .hud-brand{top:calc(var(--bar) + 30px);left:36px;display:flex;align-items:baseline;gap:10px}
+  .hud-brand b{font-family:var(--ff-display);font-weight:800;font-size:15px;
+    letter-spacing:-.02em;color:var(--paper)}
+  .hud-brand i{font-style:normal;color:var(--line)}
+
+  /* the camera readout: this page is shot, not just rendered */
+  .slate{top:calc(var(--bar) + 30px);right:36px;display:flex;align-items:center;gap:14px;
+    font-size:11px;letter-spacing:.14em;color:var(--paper)}
+  .slate u{text-decoration:none;color:var(--line)}
+  .slate .rec{width:7px;height:7px;border-radius:50%;background:var(--burn);
+    box-shadow:0 0 8px var(--burn)}
+
+  .telemetry{bottom:calc(var(--bar) + 30px);left:36px;display:grid;gap:5px;min-width:250px}
+  .telemetry .row{display:flex;justify-content:space-between;gap:24px}
+  .telemetry .row b{font-weight:500;color:var(--burn)}
+  .telemetry .row.is-live b{color:var(--key)}
+  .telemetry .bar{height:1px;background:var(--line);margin-top:7px;position:relative;overflow:hidden}
+  .telemetry .bar i{position:absolute;top:0;bottom:0;left:0;width:0%;background:var(--key);
+    box-shadow:0 0 8px var(--key)}
+  .telemetry .stat{margin-top:9px;font-size:10px;color:var(--line);
+    text-transform:uppercase;letter-spacing:.18em}
+
+  /* the only interactive control on the page: browsers will not start an
+     AudioContext without a real click, so the page has to ask */
+  .audio-btn{top:calc(var(--bar) + 58px);right:36px;pointer-events:auto;
+    display:flex;align-items:center;gap:9px;cursor:pointer;flex-direction:row-reverse;
+    background:rgba(12,17,26,.55);border:1px solid #2C3A4D;border-radius:999px;
+    padding:7px 13px;margin:0;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);
+    font-family:var(--ff-mono);font-size:10px;letter-spacing:.2em;
+    color:var(--steel);transition:color .3s ease,border-color .3s ease}
+  .audio-btn:hover{color:var(--paper);border-color:var(--steel)}
+  .audio-btn .dot{width:7px;height:7px;border-radius:50%;
+    border:1px solid currentColor;transition:all .3s ease}
+  .audio-btn.on{color:var(--key);border-color:var(--key)}
+  .audio-btn.on .dot{background:var(--key);border-color:var(--key);
+    box-shadow:0 0 8px var(--key)}
+  /* a one-off nudge on the hero so the control is noticed at all */
+  .audio-btn::after{content:"";position:absolute;inset:-4px;border-radius:999px;
+    border:1px solid var(--key);opacity:0;animation:ping 2.6s ease-out 1.2s 3}
+  .audio-btn.on::after{animation:none}
+  @keyframes ping{0%{opacity:.55;transform:scale(1)}70%,100%{opacity:0;transform:scale(1.35)}}
+  @media (prefers-reduced-motion:reduce){.audio-btn::after{animation:none}}
+
+  .rail{bottom:calc(var(--bar) + 30px);right:36px;display:grid;gap:8px;
+    justify-items:end;text-align:right}
+  .rail .p{display:flex;align-items:center;gap:11px;font-size:10.5px;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--line);transition:color .35s ease}
+  .rail .p em{font-style:normal;opacity:.55}
+  .rail .p::after{content:"";width:16px;height:1px;background:currentColor;transition:width .35s ease}
+  .rail .p.on{color:var(--paper)}
+  .rail .p.on::after{width:34px;background:var(--key);box-shadow:0 0 7px var(--key)}
+  .rail .p.done{color:var(--steel)}
+
+  /* ---------- scroll track + copy ---------- */
+  .track{position:relative;z-index:2;height:1284vh}
+  .beats{position:sticky;top:0;height:100vh;pointer-events:none}
+  .beat{
+    position:absolute;inset:0;display:flex;align-items:center;
+    padding:calc(var(--bar) + 100px) 36px calc(var(--bar) + 202px);
+    opacity:0;visibility:hidden;will-change:opacity,transform;
+  }
+  .beat .card{max-width:34ch}
+  .beat .card.wide{max-width:34rem}
+  .beat.right{justify-content:flex-end;text-align:right}
+  /* a soft scrim under the copy so it never fights the light pool behind it */
+  .beat::before{content:"";position:absolute;inset:0;pointer-events:none;
+    background:linear-gradient(90deg, rgba(5,7,12,.94) 0%, rgba(5,7,12,.74) 30%,
+      rgba(5,7,12,0) 62%)}
+  .beat.right::before{transform:scaleX(-1)}
+  .beat .card{position:relative;
+    text-shadow:0 1px 16px rgba(5,7,12,.92), 0 0 44px rgba(5,7,12,.75)}
+  /* keep right-hand copy clear of the phase rail */
+  @media (min-width:821px){ .beat.right{padding-right:264px} }
+
+  .eyebrow{
+    font-family:var(--ff-mono);font-size:11px;letter-spacing:.22em;text-transform:uppercase;
+    color:var(--key);margin:0 0 14px;display:flex;gap:10px;align-items:center;
+  }
+  .beat.right .eyebrow{justify-content:flex-end}
+  .eyebrow s{text-decoration:none;color:var(--line)}
+
+  h1{font-size:clamp(2.3rem,5.6vw,4.6rem);font-weight:800;line-height:.94;
+    letter-spacing:-.035em;margin:0 0 22px;max-width:none}
+  h2{font-size:clamp(1.7rem,3.4vw,2.6rem);font-weight:700;line-height:1.05;
+    letter-spacing:-.028em;margin:0 0 14px;text-wrap:balance}
+
+  /* :where() keeps this at element specificity so the labelled paragraphs
+     below (.eyebrow, .scrollcue, .sig, h1+p) can still win */
+  :where(.beat,.outro) p{color:var(--steel);margin:0;font-size:15px;line-height:1.62;max-width:38ch}
+  .beat.right p{margin-left:auto}
+  h1+p{font-size:17px;max-width:44ch;color:#8C9BAE}
+
+  .scrollcue{margin-top:26px;font-family:var(--ff-mono);font-size:10.5px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--line);display:flex;align-items:center;gap:12px}
+  .scrollcue::before{content:"";width:44px;height:1px;background:var(--line)}
+
+  /* ---------- outro ---------- */
+  .outro{position:relative;z-index:2;min-height:100vh;display:flex;align-items:center;
+    background:linear-gradient(180deg,rgba(5,7,12,.70),rgba(5,7,12,.84));
+    border-top:1px solid rgba(108,124,144,.42);padding:120px 36px 90px}
+  .outro-in{width:100%;max-width:1080px;margin:0 auto;display:grid;gap:56px;
+    grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);align-items:start}
+  .outro .stack{display:grid;gap:16px}
+  .specs{display:grid;gap:0;font-family:var(--ff-mono);font-size:12.5px;
+    font-variant-numeric:tabular-nums}
+  .specs div{display:flex;justify-content:space-between;gap:20px;
+    padding:13px 0;border-bottom:1px solid var(--line)}
+  .specs div:first-child{border-top:1px solid var(--line)}
+  .specs span:first-child{color:var(--steel)}
+  .specs span:last-child{color:var(--paper);text-align:right}
+  .sig{margin-top:18px;font-family:var(--ff-mono);font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--line);max-width:none}
+
+  @media (max-width:820px){
+    .rail,.slate{display:none}
+    /* portrait has no letterbox to sit the copy in, so darken the ground under it */
+    .stage::after{
+      content:"";position:absolute;inset:0;pointer-events:none;
+      background:linear-gradient(180deg,
+        rgba(5,7,12,.90) 0%, rgba(5,7,12,.58) 30%,
+        rgba(5,7,12,.02) 54%, rgba(5,7,12,.52) 100%);
+    }
+    .beat::before{display:none}
+    .beat{align-items:flex-start;padding:92px 24px 150px}
+    .beat,.beat.right{justify-content:flex-start;text-align:left}
+    .beat.right p{margin-left:0}
+    .beat.right .eyebrow{justify-content:flex-start}
+    .outro-in{grid-template-columns:1fr;gap:40px}
+    .hud-brand{top:26px;left:26px}
+    .audio-btn{top:26px;right:26px}
+    .telemetry{bottom:26px;left:26px;min-width:0;font-size:10px}
+    .frame{top:18px;bottom:18px}
+  }
+</style>
+</head>
+<body>
+<div class="stage"><canvas id="gl"></canvas></div>
+<div class="frame" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+
+<div class="hud hud-brand" aria-hidden="true">
+  <b>OBERLAB</b><i>/</i><span>TURBOFAN ASSEMBLY</span>
+</div>
+
+<div class="hud slate" aria-hidden="true">
+  <span class="rec"></span><span id="c-shot">SHOT 01</span><u>·</u>
+  <span id="c-lens">28mm</span><u>·</u><span id="c-stop">T2.8</span>
+</div>
+
+<div class="hud telemetry" aria-hidden="true">
+  <div class="row"><span>N1</span><b id="t-n1">00.0 %</b></div>
+  <div class="row"><span>EGT</span><b id="t-egt">15 &deg;C</b></div>
+  <div class="row"><span>FUEL FLOW</span><b id="t-fuel">0 kg/h</b></div>
+  <div class="row" id="t-thrust-row"><span>THRUST</span><b id="t-thrust">0 kN</b></div>
+  <div class="bar"><i id="t-bar"></i></div>
+  <div class="stat" id="t-stage">Standby</div>
+</div>
+
+<button class="hud audio-btn" id="audio-btn" type="button" aria-pressed="false">
+  <span class="dot" aria-hidden="true"></span><span id="audio-lbl">SOUND OFF</span>
+</button>
+
+<div class="hud rail" id="rail" aria-hidden="true"></div>
+
+<main class="track" id="track">
+  <div class="beats">
+  <section class="beat">
+    <div class="card wide">
+      <p class="eyebrow"><s>[</s>WEBGL / SCROLL-LINKED<s>]</s></p>
+      <h1>Scroll spools<br>the engine.</h1>
+      <p>A turbofan builds itself from bare pylon to takeoff thrust, shot like a film rather than rendered like a diagram. Six framings, real depth of field, image-based lighting, and a fan that keeps turning whether you scroll or not.</p>
+      <p class="scrollcue">Roll camera</p>
+    </div>
+  </section>
+
+  <section class="beat right">
+    <div class="card">
+      <h2>Cold section,<br>hot section</h2>
+      <p>The core stacks along the shaft in order &mdash; booster, high-pressure compressor, combustor, then the turbines that drive them all back. Each part carries its own timing offset, so the engine grows rather than appears.</p>
+    </div>
+  </section>
+
+  <section class="beat">
+    <div class="card">
+      <h2>Twenty blades,<br>one nacelle</h2>
+      <p>Each fan blade is a swept airfoil twisted along its span, seated into the hub one after another. Every part flashes at its edges and strikes the frame as it seats. The cowling arrives last as a light holographic shell and stays transparent, preserving the cutaway view through light-off and full thrust.</p>
+    </div>
+  </section>
+
+  <section class="beat right">
+    <div class="card">
+      <h2>Light off</h2>
+      <p>The combustor catches, the focus racks from the cowl edge back to the glow, and the air above the nozzle starts to shimmer. This is a real lens: a circle of confusion computed from scene depth, not a blur pasted over the frame.</p>
+    </div>
+  </section>
+
+  <section class="beat">
+    <div class="card">
+      <h2>Full<br>thrust</h2>
+      <p>N1 climbs, the blades dissolve into a turning disc, a vortex ropes off the tarmac into the intake, and the airframe shakes. Fan rotation runs on accumulated time, so hold the scroll still and the engine keeps running.</p>
+    </div>
+  </section>
+  </div>
+</main>
+
+<section class="outro">
+  <div class="outro-in">
+    <div class="stack">
+      <p class="eyebrow"><s>[</s>WHAT THIS IS<s>]</s></p>
+      <h2>Shot, not just rendered.</h2>
+      <p>The difference between a 3D animation and something cinematic is not polygon count. It is a shot list, a lens, one hard light, and a grade. This page has all four: six framings from 28mm to 85mm, depth of field driven by a depth buffer, a shadow-casting key through hangar haze, an anamorphic streak on the highlights, and film grain over a 2.39:1 frame.</p>
+      <p>Every effect is hand-written, and nothing is loaded. Three.js ships its post-processing as ES modules no CDN here can serve, so bloom, halation, defocus, heat shimmer and the grade are custom shader passes over render targets. The environment that lights the metal is authored in code and prefiltered at boot; the surface maps are drawn into a canvas; the sound is built from synthesised noise, filters and mechanical transients.</p>
+      <p class="sig">Oberlab &mdash; AI &amp; automation studio</p>
+    </div>
+    <div class="specs">
+      <div><span>Renderer</span><span>Three.js r160 / WebGL</span></div>
+      <div><span>Geometry</span><span>Procedural, 0 model files</span></div>
+      <div><span>Animated parts</span><span id="s-parts">&mdash;</span></div>
+      <div><span>Shots</span><span>6 &middot; 28&ndash;85mm</span></div>
+      <div><span>Lighting</span><span>IBL + shadowed key</span></div>
+      <div><span>Textures</span><span>Canvas-generated</span></div>
+      <div><span>Audio</span><span>Synthesised, 0 files</span></div>
+      <div><span>Post chain</span><span id="s-post">Hand-written GLSL</span></div>
+      <div><span>Driver</span><span>scrollY &rarr; progress 0&ndash;1</span></div>
+    </div>
+  </div>
+</section>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.min.js"></script>
+<script>
+(function () {
+  "use strict";
+  var REDUCED = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
+  function smoothstep(t0, t1, p) {
+    var t = clamp((p - t0) / (t1 - t0), 0, 1);
+    return t * t * (3 - 2 * t);
+  }
+  function easeInOut(t) { return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; }
+  function lerp(a, b, t) { return a + (b - a) * t; }
+
+  /* ============================================================ the clock
+     Every timing in this file derives from these five numbers. They used to be
+     ~15 scattered literals, and retiming the page desynced one of them every
+     time. Shots, phases, copy beats, N1, burn and the DOF rack all read from T. */
+  var T = {
+    ASM0:   0.06,   /* first part starts moving        */
+    ASM1:   0.62,   /* last part seated, cowl stays ghosted */
+    IGN:    0.62,   /* light-off                       */
+    SPOOL:  0.76,   /* the head-on spool-up shot       */
+    THRUST: 0.92    /* takeoff power                   */
+  };
+  /* part windows are authored 0..1 *inside* the assembly span, not in absolute
+     progress -- so the whole build can be stretched by moving ASM0/ASM1 alone */
+  function asm(a, b) {
+    return [lerp(T.ASM0, T.ASM1, a), lerp(T.ASM0, T.ASM1, b)];
+  }
+  function at(a) { return lerp(T.ASM0, T.ASM1, a); }
+
+  /* Give light-off 50% more physical scroll without stealing time from any other
+     shot. The track is 1.07x taller (the extra half of its 0.14 story span), and
+     this monotonic map slows only IGN..SPOOL before returning to the old pace. */
+  var LIGHTOFF_SCROLL_SCALE = 1.5;
+  var STORY_EXTRA = (T.SPOOL - T.IGN) * (LIGHTOFF_SCROLL_SCALE - 1);
+  var STORY_SPAN = 1 + STORY_EXTRA;
+  var SCROLL_IGN = T.IGN / STORY_SPAN;
+  var SCROLL_SPOOL = (T.IGN + (T.SPOOL - T.IGN) * LIGHTOFF_SCROLL_SCALE) / STORY_SPAN;
+  function scrollToStoryProgress(raw) {
+    if (raw <= SCROLL_IGN) return raw * STORY_SPAN;
+    if (raw < SCROLL_SPOOL) {
+      return T.IGN + (raw * STORY_SPAN - T.IGN) / LIGHTOFF_SCROLL_SCALE;
+    }
+    return clamp(raw * STORY_SPAN - STORY_EXTRA, 0, 1);
+  }
+
+  /* ============================================================ sound
+     Everything below is synthesised -- no files, no fetches. Browsers refuse to
+     start an AudioContext without a real user gesture (a scroll does not count
+     in Chrome or Firefox), so the graph is built lazily inside the toggle's
+     click handler and the page starts silent. */
+var A = (function () {
+
+  var ctx = null, ok = false, muted = true;
+  var master, send, wet, wetLP;
+  var rumbleSrc, rumbleLP, rumbleGain;
+  var whiteBuf, brownBuf;
+  var MASTER = 0.2; // ~ -14 dBFS ceiling
+
+  function AC() {
+    if (typeof window === 'undefined') return null;
+    return window.AudioContext || window.webkitAudioContext || null;
+  }
+
+  // brown = leaky integration of white; gives the 1/f^2 slope a big fan produces
+  function makeNoise(seconds, brown) {
+    var n = Math.floor(ctx.sampleRate * seconds);
+    // Brown noise random-walks away from zero, so a raw loop point is a step
+    // discontinuity -> an audible thump every cycle. Render extra tail and
+    // crossfade it back over the head so the loop is seamless.
+    var xf = brown ? Math.floor(ctx.sampleRate * 0.25) : 0;
+    var raw = new Float32Array(n + xf);
+    var i, w, a, b = 0, peak = 0;
+    for (i = 0; i < n + xf; i++) {
+      w = Math.random() * 2 - 1;
+      if (brown) { b = (b + 0.02 * w) / 1.02; raw[i] = b; } else raw[i] = w;
+    }
+    var buf = ctx.createBuffer(1, n, ctx.sampleRate);
+    var d = buf.getChannelData(0);
+    for (i = 0; i < n; i++) d[i] = raw[i];
+    for (i = 0; i < xf; i++) { a = i / xf; d[i] = d[i] * a + raw[n + i] * (1 - a); }
+    for (i = 0; i < n; i++) { if (Math.abs(d[i]) > peak) peak = Math.abs(d[i]); }
+    // normalise: the integrator's output level is otherwise unpredictable
+    if (peak > 0) { for (i = 0; i < n; i++) d[i] /= peak; }
+    return buf;
+  }
+
+  // Procedural hangar IR: silent pre-delay, then discrete early reflections,
+  // then an exponential diffuse tail. The gap before the tail is the cue that
+  // reads as "large space"; channels use independent noise so the tail images wide.
+  function makeImpulse() {
+    var len = Math.floor(ctx.sampleRate * 1.6);
+    var gap = Math.floor(ctx.sampleRate * 0.02);
+    var buf = ctx.createBuffer(2, len, ctx.sampleRate);
+    var c, d, i, t, k, pos;
+    for (c = 0; c < 2; c++) {
+      d = buf.getChannelData(c);
+      for (i = gap; i < len; i++) {
+        t = (i - gap) / ctx.sampleRate;
+        d[i] = (Math.random() * 2 - 1) * Math.exp(-4.3 * t); // -60 dB at 1.6 s
+      }
+      for (k = 0; k < 5; k++) {
+        pos = Math.floor((0.003 + Math.random() * 0.014) * ctx.sampleRate);
+        if (pos < gap) d[pos] += (Math.random() * 2 - 1) * 0.7;
+      }
+    }
+    return buf;
+  }
+
+  function build() {
+    var C = AC();
+    if (!C) return false;
+    ctx = new C();
+
+    // No bus compressor on purpose: DynamicsCompressorNode's makeup gain can't be
+    // disabled, and its wide knee would duck the drone on every clunk.
+    master = ctx.createGain();
+    master.gain.value = 0; // starts muted
+    master.connect(ctx.destination);
+
+    // Wet return is lowpassed: a large metal hall absorbs its own top end.
+    var conv = ctx.createConvolver();
+    conv.buffer = makeImpulse();
+    wetLP = ctx.createBiquadFilter();
+    wetLP.type = 'lowpass';
+    wetLP.frequency.value = 3500;
+    wet = ctx.createGain();
+    wet.gain.value = 0.35; // clunks stay dry-forward; the hall is a hint, not a wash
+    send = ctx.createGain();
+    send.gain.value = 1;
+    send.connect(conv); conv.connect(wetLP); wetLP.connect(wet); wet.connect(master);
+
+    whiteBuf = makeNoise(1.0, false);
+    brownBuf = makeNoise(3.0, true);
+
+    // --- rumble: brown noise under a 120 Hz lowpass ---
+    rumbleLP = ctx.createBiquadFilter();
+    rumbleLP.type = 'lowpass';
+    rumbleLP.frequency.value = 120;
+    rumbleLP.Q.value = 0.9;
+    rumbleGain = ctx.createGain();
+    rumbleGain.gain.value = 0;
+    rumbleSrc = ctx.createBufferSource();
+    rumbleSrc.buffer = brownBuf; rumbleSrc.loop = true;
+    rumbleSrc.connect(rumbleLP); rumbleLP.connect(rumbleGain); rumbleGain.connect(master);
+
+    rumbleSrc.start();
+    return true;
+  }
+
+  function arm() {
+    if (!ok) {
+      try { if (!build()) return 'unavailable'; ok = true; }
+      catch (e) { ctx = null; return 'unavailable'; }
+      // honour any setMuted() the host called before the graph existed
+      master.gain.setTargetAtTime(muted ? 0 : MASTER, ctx.currentTime, 0.06);
+    }
+    try { if (ctx.state === 'suspended') ctx.resume(); } catch (e2) {}
+    return ctx.state;
+  }
+
+  function setMuted(m) {
+    api.muted = muted = !!m;
+    if (!ok) return;
+    // target-0 ramp, never a hard cut
+    master.gain.setTargetAtTime(muted ? 0 : MASTER, ctx.currentTime, 0.06);
+  }
+
+  function clunk(seed) {
+    if (!ok) return;
+    var s = +seed;
+    // !(s >= 0) also catches NaN/undefined; an AudioParam set to NaN throws
+    if (!(s >= 0) || s > 1e6) s = Math.random();
+    s = s - Math.floor(s);
+
+    var t = ctx.currentTime;
+    var v = s * 2 - 1;
+    var lockTime = t + 0.035 + v * 0.003; // 32-38 ms: mechanical double action
+
+    function burst(when, frequency, q, level, decay, wetAmount) {
+      var src = ctx.createBufferSource();
+      var bp = ctx.createBiquadFilter();
+      var gain = ctx.createGain();
+      var reverbSend = ctx.createGain();
+
+      src.buffer = whiteBuf;
+      bp.type = 'bandpass';
+      bp.frequency.value = frequency;
+      bp.Q.value = q;
+      gain.gain.setValueAtTime(level, when);
+      gain.gain.exponentialRampToValueAtTime(0.0005, when + decay);
+      reverbSend.gain.value = wetAmount;
+
+      src.connect(bp); bp.connect(gain);
+      gain.connect(master);
+      gain.connect(reverbSend); reverbSend.connect(send);
+      src.start(when);
+      src.stop(when + decay + 0.02);
+    }
+
+    // Broad low-mid plate body plus a very short steel contact edge.
+    burst(t, 620, 0.60, 0.19 * (1 + v * 0.04), 0.045, 0.12);
+    burst(t, 3900, 0.80, 0.060 * (1 - v * 0.03), 0.009, 0.05);
+
+    // Quieter latch seating behind the main impact; fixed spectra avoid melody.
+    burst(lockTime, 760, 0.70, 0.095 * (1 - v * 0.04), 0.028, 0.09);
+    burst(lockTime, 4600, 0.90, 0.030 * (1 + v * 0.03), 0.007, 0.04);
+  }
+
+  function setThrust(v) {
+    if (!ok) return;
+    v = +v; if (!(v > 0)) v = 0; if (v > 1) v = 1;
+    rumbleGain.gain.setTargetAtTime(Math.pow(v, 1.3) * 0.55, ctx.currentTime, 0.12);
+    rumbleLP.frequency.setTargetAtTime(90 + v * 70, ctx.currentTime, 0.12);
+  }
+
+  function ignite() {
+    if (!ok) return;
+    var t = ctx.currentTime;
+
+    var src = ctx.createBufferSource();
+    src.buffer = whiteBuf; src.loop = true;
+    var lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.Q.value = 1.1;
+    // upward sweep reads as the flame front propagating out through the core
+    lp.frequency.setValueAtTime(180, t);
+    lp.frequency.exponentialRampToValueAtTime(7000, t + 1.2);
+    var g = ctx.createGain();
+    g.gain.setValueAtTime(0.0005, t);
+    g.gain.exponentialRampToValueAtTime(0.22, t + 0.06);
+    g.gain.exponentialRampToValueAtTime(0.0005, t + 1.2);
+    src.connect(lp); lp.connect(g);
+    g.connect(master); g.connect(send);
+    src.start(t); src.stop(t + 1.3);
+
+    var o = ctx.createOscillator();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(65, t);
+    o.frequency.exponentialRampToValueAtTime(35, t + 0.15);
+    var og = ctx.createGain();
+    og.gain.setValueAtTime(0.3, t);
+    og.gain.exponentialRampToValueAtTime(0.0005, t + 0.25);
+    o.connect(og); og.connect(master);
+    o.start(t); o.stop(t + 0.3);
+  }
+
+  // No-op: all parameter smoothing is done by setTargetAtTime on the audio thread.
+  function tick(dt) { return dt; }
+
+  var api = {
+    arm: arm,
+    setMuted: setMuted,
+    muted: true,
+    clunk: clunk,
+    setThrust: setThrust,
+    ignite: ignite,
+    tick: tick
+  };
+  return api;
+})();
+
+  /* ============================================================ renderer */
+  var canvas = document.getElementById("gl");
+  var renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: false });
+  var DPR = Math.min(window.devicePixelRatio || 1, 1.5);
+  renderer.setPixelRatio(DPR);
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  /* tone mapping + sRGB are applied by hand in the composite shader, because a
+     ShaderMaterial reading a render target gets neither for free */
+  renderer.toneMapping = THREE.NoToneMapping;
+
+  /* a cheap machine gets fewer luxuries: no shadow pass, no anamorphic streak,
+     thinner particle counts. Decided once, read everywhere. */
+  var LOW = (DPR * window.innerWidth < 1100) ||
+            ((navigator.hardwareConcurrency || 8) <= 4);
+
+  if (!LOW) {
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.shadowMap.autoUpdate = false;   /* driven by hand in frame() */
+  }
+
+  var scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x05070c);
+  scene.fog = new THREE.FogExp2(0x05070c, 0.0125);
+
+  var camera = new THREE.PerspectiveCamera(40, 1, 0.35, 400);
+  var root = new THREE.Group();
+  scene.add(root);
+
+  /* ============================================================ surface
+     No image files can reach this page (the artifact CSP allows scripts from
+     one CDN and nothing else), so every map below is drawn into a canvas at
+     boot. Seeded, so the engine looks the same on every reload. */
+var TEX = (function () {
+    // mulberry32. A literal seed per texture: stable across reloads, order-independent.
+    function makeRand(seed) {
+        var s = seed >>> 0;
+        return function () {
+            s = (s + 0x6D2B79F5) >>> 0;
+            var t = Math.imul(s ^ (s >>> 15), 1 | s);
+            t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+            return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+        };
+    }
+    function canvas2d(w, h) { var c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
+    function clamp255(v) { return v < 0 ? 0 : (v > 255 ? 255 : v); }
+    function fade(t) { return t * t * (3 - 2 * t); }
+    function upscale(src, w, h) { // bilinear upscale preserves tiling; shrunk axis has no fine detail
+        var c = canvas2d(w, h); c.getContext('2d').drawImage(src, 0, 0, w, h); return c; }
+    // Value-noise lattice: independent Lx/Ly gives anisotropy, and sampling wraps modulo it, so all of this tiles.
+    function lattice(Lx, Ly, rand) { var a = [], i; for (i = 0; i < Lx * Ly; i++) { a[i] = rand(); } return { w: Lx, h: Ly, d: a }; }
+    function noise(L, u, v) { // u,v in [0,1)
+        var x = u * L.w, y = v * L.h, xi = Math.floor(x), yi = Math.floor(y);
+        var xf = fade(x - xi), yf = fade(y - yi);
+        var x0 = ((xi % L.w) + L.w) % L.w, y0 = ((yi % L.h) + L.h) % L.h;
+        var x1 = (x0 + 1) % L.w, y1 = (y0 + 1) % L.h;
+        var a = L.d[y0 * L.w + x0], b = L.d[y0 * L.w + x1], c = L.d[y1 * L.w + x0], e = L.d[y1 * L.w + x1];
+        return (a + (b - a) * xf) * (1 - yf) + (c + (e - c) * xf) * yf;
+    }
+    // 1. Brushed metal roughness: greyscale streaks along X, ~0.35 +/- 0.12.
+    function brushedRoughness(size) {
+        size = size || 512;
+        var w = size >> 2, c = canvas2d(w, size), ctx = c.getContext('2d'); // full height, quarter width
+        var img = ctx.createImageData(w, size), d = img.data, r = makeRand(0x51A7C3);
+        // Lx = 1 collapses X interpolation -> dead-straight streaks; wider-Lx octaves add waviness.
+        var fine = lattice(1, size >> 1, r), wavy = lattice(5, size >> 2, r), blot = lattice(3, 3, r);
+        var x, y, u, v, n, g, i = 0;
+        for (y = 0; y < size; y++) { v = y / size;
+            for (x = 0; x < w; x++) { u = x / w;
+                n = noise(fine, u, v) + noise(wavy, u, v) * 0.55 + noise(blot, u, v) * 0.3;
+                n = (n / 1.85) * 2 - 1; // recentre the summed octaves to [-1,1]
+                g = clamp255(Math.round((0.35 + n * 0.12) * 255));
+                d[i] = d[i + 1] = d[i + 2] = g; d[i + 3] = 255; i += 4;
+            }
+        }
+        ctx.putImageData(img, 0, 0); return upscale(c, size, size);
+    }
+    function rivet(ctx, x, y, rad) {
+        var g = ctx.createRadialGradient(x, y, 0, x, y, rad);
+        g.addColorStop(0, '#d2d2d2'); g.addColorStop(0.6, '#a8a8a8');
+        g.addColorStop(1, 'rgba(154,154,154,0)'); // fades into the base grey
+        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, rad, 0, Math.PI * 2); ctx.fill();
+    }
+    // Height field behind panelNormal: panel grid, recessed seams, sparse rivets.
+    function panelHeight(size, r) {
+        var c = canvas2d(size, size), ctx = c.getContext('2d');
+        ctx.fillStyle = '#9a9a9a'; ctx.fillRect(0, 0, size, size);
+        var cells = 4, step = size / cells, i, j, k, s, p, ox, oy, t, pts;
+        for (i = 0; i <= cells; i++) { p = i * step; // drawn at both 0 and size, so the seams tile
+            ctx.fillStyle = '#b4b4b4'; ctx.fillRect(p - 2, 0, 4, size); ctx.fillRect(0, p - 2, size, 4);
+            ctx.fillStyle = '#5a5a5a'; ctx.fillRect(p - 1, 0, 2, size); ctx.fillRect(0, p - 1, size, 2);
+        }
+        var inset = 9, span = step - inset * 2, per = 4;
+        for (i = 0; i < cells; i++) {
+            for (j = 0; j < cells; j++) { ox = i * step; oy = j * step;
+                for (k = 0; k < per; k++) {
+                    t = inset + (k + 0.5) / per * span;
+                    pts = [[ox + t, oy + inset], [ox + t, oy + step - inset],   // the inset keeps every
+                        [ox + inset, oy + t], [ox + step - inset, oy + t]];     // rivet clear of the wrap
+                    for (s = 0; s < 4; s++) { if (r() >= 0.25) { rivet(ctx, pts[s][0], pts[s][1], 2.6); } }
+                }
+            }
+        }
+        return c;
+    }
+    // 2. Tangent-space normal map: wrapped Sobel over that height field.
+    function panelNormal(size) {
+        size = size || 256;
+        var hd = panelHeight(size, makeRand(0x2B9F41)).getContext('2d').getImageData(0, 0, size, size).data;
+        var out = canvas2d(size, size), octx = out.getContext('2d');
+        var img = octx.createImageData(size, size), d = img.data;
+        var k = 2.4, x, y, i, inv, xm, xp, ym, yp, dx, dy, nx, ny, len;
+        function H(px, py) { return hd[(py * size + px) * 4] / 255; }
+        for (y = 0; y < size; y++) { ym = (y - 1 + size) % size; yp = (y + 1) % size; // wrap keeps tiling
+            for (x = 0; x < size; x++) { xm = (x - 1 + size) % size; xp = (x + 1) % size;
+                dx = (H(xp, ym) + 2 * H(xp, y) + H(xp, yp) - H(xm, ym) - 2 * H(xm, y) - H(xm, yp)) / 8;
+                dy = (H(xm, yp) + 2 * H(x, yp) + H(xp, yp) - H(xm, ym) - 2 * H(x, ym) - H(xp, ym)) / 8;
+                // +dy assumes CanvasTexture's default flipY = true; negate if the host sets flipY = false.
+                nx = -dx * k; ny = dy * k;
+                len = Math.sqrt(nx * nx + ny * ny + 1); inv = 1 / len; i = (y * size + x) * 4;
+                d[i] = Math.round((nx * inv * 0.5 + 0.5) * 255); d[i + 1] = Math.round((ny * inv * 0.5 + 0.5) * 255);
+                d[i + 2] = Math.round((inv * 0.5 + 0.5) * 255); d[i + 3] = 255;
+            }
+        }
+        octx.putImageData(img, 0, 0); return out;
+    }
+    // 3. Turbine temper-colour ramp along X, for an sRGB colour map.
+    function heatTint(size) {
+        size = size || 256;
+        var h = 32, c = canvas2d(size, h), ctx = c.getContext('2d');
+        var g = ctx.createLinearGradient(0, 0, size, 0);
+        g.addColorStop(0.00, '#a4adb8'); g.addColorStop(0.18, '#9a8f6e'); // cool steel
+        g.addColorStop(0.36, '#c9a44e'); g.addColorStop(0.52, '#8f6a55'); // straw / gold
+        g.addColorStop(0.68, '#6b4a5e'); g.addColorStop(0.84, '#3d2c30'); // violet-brown
+        g.addColorStop(1.00, '#181514');                                  // soot
+        ctx.fillStyle = g; ctx.fillRect(0, 0, size, h); return c;
+    }
+    // 4. Hangar floor: dark mottled fBm, expansion joints, a few stains.
+    function concreteFloor(size) {
+        size = size || 512;
+        var half = size >> 1, r = makeRand(0x7C1D09);
+        var l1 = lattice(3, 3, r), l2 = lattice(6, 6, r), l3 = lattice(16, 16, r);
+        var small = canvas2d(half, half), sctx = small.getContext('2d'); // mottle is low-frequency
+        var img = sctx.createImageData(half, half), d = img.data, x, y, u, v, n, g, i = 0;
+        for (y = 0; y < half; y++) { v = y / half;
+            for (x = 0; x < half; x++) { u = x / half;
+                n = noise(l1, u, v) + noise(l2, u, v) * 0.5 + noise(l3, u, v) * 0.25;
+                g = clamp255(Math.round(46 + (n / 1.75 - 0.5) * 34)); // centred, then onto a dark base
+                d[i] = g; d[i + 1] = clamp255(g + 1); d[i + 2] = clamp255(g + 3); d[i + 3] = 255; i += 4;
+            }
+        }
+        sctx.putImageData(img, 0, 0);
+        var c = upscale(small, size, size), ctx = c.getContext('2d');
+        // Both 0 and size stroked: each edge gives half the width, so the tiled seam is one groove.
+        ctx.strokeStyle = 'rgba(12,12,14,0.5)'; ctx.lineWidth = 2; ctx.beginPath();
+        var jp = [0, half, size], j;
+        for (j = 0; j < 3; j++) {
+            ctx.moveTo(jp[j], 0); ctx.lineTo(jp[j], size); ctx.moveTo(0, jp[j]); ctx.lineTo(size, jp[j]);
+        }
+        ctx.stroke();
+        var s, ax, ay, sx, sy, sr, dark, gx, gy, sg;
+        for (s = 0; s < 6; s++) {
+            sx = r() * size; sy = r() * size; sr = 30 + r() * 70; dark = r() < 0.55;
+            for (ax = -1; ax <= 1; ax++) { // 3x3 wrapped draw keeps the stains seamless
+                for (ay = -1; ay <= 1; ay++) { gx = sx + ax * size; gy = sy + ay * size;
+                    sg = ctx.createRadialGradient(gx, gy, 0, gx, gy, sr);
+                    sg.addColorStop(0, dark ? 'rgba(8,8,10,0.30)' : 'rgba(122,118,110,0.13)');
+                    sg.addColorStop(1, 'rgba(0,0,0,0)');
+                    ctx.fillStyle = sg; ctx.fillRect(gx - sr, gy - sr, sr * 2, sr * 2);
+                }
+            }
+        }
+        return c;
+    }
+    // 5. Soft additive smoke puff, RGBA over transparent.
+    function smoke(size) {
+        size = size || 128;
+        var c = canvas2d(size, size), ctx = c.getContext('2d');
+        var img = ctx.createImageData(size, size), d = img.data;
+        var h = size / 2, x, y, dx, dy, rr, a, v, i = 0;
+        for (y = 0; y < size; y++) {
+            for (x = 0; x < size; x++) {
+                dx = (x + 0.5 - h) / h; dy = (y + 0.5 - h) / h; rr = Math.sqrt(dx * dx + dy * dy);
+                a = rr >= 1 ? 0 : Math.pow(1 - rr, 2.5); v = Math.round(255 * a);
+                // falloff baked into RGB too, so premultiplied/custom blends never show a hard rim
+                d[i] = d[i + 1] = d[i + 2] = v; d[i + 3] = v; i += 4;
+            }
+        }
+        ctx.putImageData(img, 0, 0); return c;
+    }
+    return { brushedRoughness: brushedRoughness, panelNormal: panelNormal, heatTint: heatTint,
+        concreteFloor: concreteFloor, smoke: smoke };
+})();
+
+  function ctex(canvas, rx, ry) {
+    var t = new THREE.CanvasTexture(canvas);
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    if (rx) t.repeat.set(rx, ry === undefined ? rx : ry);
+    t.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+    return t;
+  }
+  var texRough  = ctex(TEX.brushedRoughness(512), 5, 3);
+  var texPanel  = ctex(TEX.panelNormal(256), 5, 3);
+  var texFloor  = ctex(TEX.concreteFloor(512), 16, 16);
+  var texSmoke  = ctex(TEX.smoke(128));
+  var texTemper = ctex(TEX.heatTint(256), 1, 1);
+  texFloor.colorSpace = THREE.SRGBColorSpace;
+  texTemper.colorSpace = THREE.SRGBColorSpace;
+  /* the tint gradient runs along the canvas X, but a lathe's U runs *around*
+     the axis -- rotating the map a quarter turn puts the banding axially,
+     which is where temper colour actually sits on a real turbine */
+  texTemper.center.set(0.5, 0.5);
+  texTemper.rotation = Math.PI / 2;
+
+  /* ============================================================ materials */
+  function metal(color, rough, metalness) {
+    return new THREE.MeshStandardMaterial({
+      color: color, roughness: rough,
+      metalness: metalness === undefined ? 0.92 : metalness
+    });
+  }
+  var M = {
+    dark:   metal(0x39424f, 0.58, 0.30),   /* painted structure */
+    body:   metal(0x6d7b90, 0.44, 0.42),   /* painted casing    */
+    bright: metal(0xa9bad0, 0.22, 0.95),   /* machined rings    */
+    blade:  new THREE.MeshStandardMaterial({
+      color: 0xa8b8cc, roughness: 0.19, metalness: 0.97,
+      transparent: true, opacity: 1        /* fades out as the turning disc fades in */
+    }),
+    hot:    new THREE.MeshStandardMaterial({
+      color: 0x3a2416, roughness: 0.55, metalness: 0.6,
+      emissive: 0xff7a22, emissiveIntensity: 0
+    }),
+    cowl:   new THREE.MeshPhysicalMaterial({
+      color: 0x8d99aa, roughness: 0.34, metalness: 0.18,
+      clearcoat: 0.9, clearcoatRoughness: 0.11,
+      transparent: true, opacity: 0.12, side: THREE.DoubleSide, depthWrite: false
+    })
+  };
+  /* surface breakup: machining marks in the roughness, panel seams and rivets
+     in the normal. Deliberately absent from the fan blades -- ExtrudeGeometry's
+     UVs are per-face garbage once the airfoil has been twisted. */
+  var surfaced = [M.dark, M.body, M.bright];
+  for (var mi = 0; mi < surfaced.length; mi++) {
+    surfaced[mi].roughnessMap = texRough;
+    surfaced[mi].normalMap = texPanel;
+    surfaced[mi].normalScale = new THREE.Vector2(0.42, 0.42);
+  }
+  M.cowl.normalMap = texPanel;
+  M.cowl.normalScale = new THREE.Vector2(0.22, 0.22);
+  M.blade.roughnessMap = texRough;
+
+  /* the hot end runs temper colours: straw, violet, then soot */
+  M.temper = metal(0x9fb0c6, 0.30, 0.92);
+  M.temper.map = texTemper;
+  M.temper.roughnessMap = texRough;
+
+  var edgeMat = new THREE.LineBasicMaterial({
+    color: 0x35516e, transparent: true, opacity: 0.5
+  });
+
+  /* ============================================================ lights */
+  /* the IBL below carries most of the fill now, so the ambient drops to a floor */
+  scene.add(new THREE.AmbientLight(0x223044, 0.22));
+
+  /* hard raking key from high camera-left -- physical units in r160, so the
+     intensity is a candela figure, not the old 0..1 scale */
+  var key = new THREE.SpotLight(0xcfe2ff, 26000, 190, 0.40, 0.55, 2);
+  key.position.set(16, 34, 22);
+  key.target.position.set(0, 0, 0);
+  scene.add(key); scene.add(key.target);
+
+  if (!LOW) {
+    key.castShadow = true;
+    key.shadow.mapSize.set(1536, 1536);
+    /* the key sits ~43 units out. Leaving the default near 0.5 / far 500 spends
+       almost all the depth range on empty space and the lathe surfaces acne. */
+    key.shadow.camera.near = 15;
+    key.shadow.camera.far  = 92;
+    key.shadow.normalBias  = 0.045;
+    key.shadow.bias        = -0.0004;
+  }
+
+  var rim = new THREE.DirectionalLight(0x6fa6e8, 3.2);
+  rim.position.set(-22, 6, -26); scene.add(rim);
+  /* a hard kicker off the far side -- this is the edge that separates the
+     engine from the hangar behind it */
+  var kick = new THREE.DirectionalLight(0xbcd6ff, 2.4);
+  kick.position.set(-14, 16, 20); scene.add(kick);
+
+  var under = new THREE.DirectionalLight(0xffa04a, 0.0);   /* lit after ignition */
+  under.position.set(-6, -14, 8); scene.add(under);
+
+  var fillC = new THREE.DirectionalLight(0x9fc4ff, 0.70);
+  fillC.position.set(10, 2, 24); scene.add(fillC);
+
+  /* two sodium work lamps down on the deck. They contribute almost nothing to
+     exposure -- they are there so the frame is not one single blue. */
+  var lampGeo = new THREE.SphereGeometry(0.34, 8, 6);
+  /* dim on purpose: at full brightness a MeshBasic sphere clears the bloom
+     threshold and smears a sunset across a third of the frame */
+  var lampMat = new THREE.MeshBasicMaterial({ color: 0x7a4520 });
+  var LAMPS = [[-46, -4.4, -52, 3400], [44, -4.8, -58, 2300], [-8, -4.6, -74, 2000]];
+  for (var li = 0; li < LAMPS.length; li++) {
+    var L = LAMPS[li];
+    var pl = new THREE.PointLight(0xff9c46, L[3], 96, 2);
+    pl.position.set(L[0], L[1], L[2]); scene.add(pl);
+    var lm = new THREE.Mesh(lampGeo, lampMat);
+    lm.position.copy(pl.position); scene.add(lm);
+  }
+
+  /* ---- the hangar ----------------------------------------------------------
+     This used to be an overhead gantry with two posts, and in the head-on
+     spool-up shot a post sat squarely between the lens and the fan. An
+     enclosing shell cannot do that: the camera lives inside it at every
+     azimuth, so it can only ever be background. It also gives the IBL below
+     something honest to reflect. ------------------------------------------- */
+  var floorMat = new THREE.MeshStandardMaterial({
+    color: 0x070b11, roughness: 0.92, metalness: 0.08, map: texFloor
+  });
+  var floor = new THREE.Mesh(new THREE.PlaneGeometry(260, 260), floorMat);
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.y = -7.4;
+  floor.receiveShadow = true;
+  scene.add(floor);
+
+  var HANGAR_R = 95, CEIL_Y = 40;
+  var shellMat = new THREE.MeshStandardMaterial({
+    color: 0x0a0e15, roughness: 0.95, metalness: 0.05, side: THREE.BackSide
+  });
+  var shell = new THREE.Mesh(
+    new THREE.CylinderGeometry(HANGAR_R, HANGAR_R, CEIL_Y + 7.4, 48, 1, true), shellMat);
+  shell.position.y = (CEIL_Y - 7.4) / 2;
+  scene.add(shell);
+  var ceil = new THREE.Mesh(new THREE.CircleGeometry(HANGAR_R, 48),
+    new THREE.MeshStandardMaterial({ color: 0x080c12, roughness: 0.98, metalness: 0 }));
+  ceil.rotation.x = Math.PI / 2;
+  ceil.position.y = CEIL_Y;
+  scene.add(ceil);
+
+  /* ceiling strip lights: the backdrop shot 01 was missing, and the specular
+     highlight that tells you a surface is metal */
+  var stripMat = new THREE.MeshBasicMaterial({ color: 0x9dbde8 });
+  for (var sx = -2; sx <= 2; sx++) {
+    for (var sz = -1; sz <= 1; sz++) {
+      var strip = new THREE.Mesh(new THREE.PlaneGeometry(26, 1.5), stripMat);
+      strip.rotation.x = Math.PI / 2;
+      strip.position.set(sx * 30, CEIL_Y - 0.4, sz * 34);
+      scene.add(strip);
+    }
+  }
+
+  /* ---- image-based lighting ------------------------------------------------
+     MeshStandardMaterial at metalness 0.92 with nothing to reflect renders as
+     a flat grey diagram. PMREM is core three (the RoomEnvironment helper is an
+     addon cdnjs does not ship), so the environment gets authored by hand: a
+     dark box, dim ceiling strips, one bright panel where the key lives.
+     Kept deliberately dim -- this is for specular shape on metal, not fill.
+     The shadows stay black. -------------------------------------------------- */
+  (function buildEnvironment() {
+    var envScene = new THREE.Scene();
+    function panel(w, h, color, x, y, z, rx, ry) {
+      var m = new THREE.Mesh(new THREE.PlaneGeometry(w, h),
+        new THREE.MeshBasicMaterial({ color: color, side: THREE.DoubleSide }));
+      m.position.set(x, y, z);
+      m.rotation.set(rx || 0, ry || 0, 0);
+      envScene.add(m);
+      return m;
+    }
+    envScene.add(new THREE.Mesh(
+      new THREE.BoxGeometry(120, 90, 120),
+      new THREE.MeshBasicMaterial({ color: 0x070a10, side: THREE.BackSide })));
+    panel(40, 40, 0x50708f, 22, 40, 28, Math.PI / 2);     /* the key's own panel */
+    panel(70, 6,  0x16202e, 0, 43, -20, Math.PI / 2);     /* dim ceiling strips  */
+    panel(70, 6,  0x16202e, 0, 43,  22, Math.PI / 2);
+    panel(90, 30, 0x0a1018, -55, 8, 0, 0, Math.PI / 2);   /* far wall bounce     */
+    panel(120, 120, 0x070b11, 0, -25, 0, -Math.PI / 2);   /* floor bounce        */
+
+    var pmrem = new THREE.PMREMGenerator(renderer);
+    pmrem.compileEquirectangularShader();
+    scene.environment = pmrem.fromScene(envScene, 0.04).texture;
+    pmrem.dispose();
+    envScene.traverse(function (o) {
+      if (o.geometry) o.geometry.dispose();
+      if (o.material) o.material.dispose();
+    });
+  })();
+
+  /* scene.environment lights every standard material at full strength, which
+     turns a night hangar into a lit swimming pool. Metal gets enough to shape
+     its highlights; everything else gets a whisper. */
+  M.dark.envMapIntensity   = 0.55;
+  M.body.envMapIntensity   = 0.65;
+  M.bright.envMapIntensity = 0.95;
+  M.blade.envMapIntensity  = 0.72;
+  M.hot.envMapIntensity    = 0.25;
+  M.temper.envMapIntensity = 0.80;
+  M.cowl.envMapIntensity   = 0.90;
+  floorMat.envMapIntensity = 0.08;
+  shellMat.envMapIntensity = 0.05;
+
+  var DUST = LOW ? 260 : 620, dustArr = new Float32Array(DUST * 3);
+  for (var dd = 0; dd < DUST; dd++) {
+    dustArr[dd * 3]     = (Math.random() - 0.5) * 78;
+    dustArr[dd * 3 + 1] = -7.0 + Math.random() * 30;
+    dustArr[dd * 3 + 2] = (Math.random() - 0.5) * 78;
+  }
+  var dustGeo = new THREE.BufferGeometry();
+  dustGeo.setAttribute("position", new THREE.Float32BufferAttribute(dustArr, 3));
+  var dust = new THREE.Points(dustGeo, new THREE.PointsMaterial({
+    color: 0xa8ccff, size: 0.14, map: texSmoke, transparent: true, opacity: 0.5,
+    blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: true
+  }));
+  scene.add(dust);
+
+  /* ============================================================ sparks
+     A pool, not an allocator: a burst of contact sparks when a part seats. */
+  var SPARK_N = LOW ? 200 : 520;
+  var sparkPos  = new Float32Array(SPARK_N * 3);
+  var sparkVel  = new Float32Array(SPARK_N * 3);
+  var sparkLife = new Float32Array(SPARK_N);
+  var sparkHead = 0;
+  var sparkGeo = new THREE.BufferGeometry();
+  sparkGeo.setAttribute("position", new THREE.BufferAttribute(sparkPos, 3));
+  sparkGeo.setAttribute("aLife", new THREE.BufferAttribute(sparkLife, 1));
+  sparkGeo.setDrawRange(0, SPARK_N);
+  var sparkMat = new THREE.ShaderMaterial({
+    uniforms: {
+      uCold: { value: new THREE.Color(0xffb066) },
+      uHot:  { value: new THREE.Color(0xfff3d4) }
+    },
+    vertexShader: [
+      "attribute float aLife; varying float vLife;",
+      "void main(){ vLife = aLife;",
+      "  vec4 mv = modelViewMatrix * vec4(position, 1.0);",
+      "  gl_PointSize = (1.2 + 15.0 * aLife) * (170.0 / max(-mv.z, 1.0));",
+      "  gl_Position = projectionMatrix * mv; }"
+    ].join("\n"),
+    fragmentShader: [
+      "precision highp float; varying float vLife; uniform vec3 uCold, uHot;",
+      "void main(){",
+      "  float m = smoothstep(0.5, 0.04, length(gl_PointCoord - 0.5));",
+      "  if (vLife <= 0.0) discard;",
+      "  gl_FragColor = vec4(mix(uCold, uHot, vLife * vLife), m * vLife); }"
+    ].join("\n"),
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
+  });
+  var sparks = new THREE.Points(sparkGeo, sparkMat);
+  sparks.frustumCulled = false;
+  scene.add(sparks);
+
+  function emitSparks(pos, n) {
+    for (var i = 0; i < n; i++) {
+      var k = sparkHead; sparkHead = (sparkHead + 1) % SPARK_N;
+      sparkPos[k * 3]     = pos.x + (Math.random() - 0.5) * 0.3;
+      sparkPos[k * 3 + 1] = pos.y + (Math.random() - 0.5) * 0.3;
+      sparkPos[k * 3 + 2] = pos.z + (Math.random() - 0.5) * 0.3;
+      var sp = 1.6 + Math.random() * 4.4, th = Math.random() * 6.2832,
+          ph = Math.acos(2 * Math.random() - 1);
+      sparkVel[k * 3]     = Math.sin(ph) * Math.cos(th) * sp;
+      sparkVel[k * 3 + 1] = Math.cos(ph) * sp * 0.7 + 1.2;
+      sparkVel[k * 3 + 2] = Math.sin(ph) * Math.sin(th) * sp;
+      sparkLife[k] = 1;
+    }
+    sparkGeo.attributes.position.needsUpdate = true;
+    sparkGeo.attributes.aLife.needsUpdate = true;
+  }
+
+  var _anySpark = false;
+  function stepSparks(dt) {
+    var live = false;
+    for (var i = 0; i < SPARK_N; i++) {
+      if (sparkLife[i] <= 0) continue;
+      live = true;
+      sparkLife[i] -= dt * 1.5;
+      if (sparkLife[i] < 0) { sparkLife[i] = 0; continue; }
+      var d = Math.pow(0.12, dt);            /* air drag */
+      sparkVel[i * 3] *= d; sparkVel[i * 3 + 2] *= d;
+      sparkVel[i * 3 + 1] = sparkVel[i * 3 + 1] * d - 9.0 * dt;
+      sparkPos[i * 3]     += sparkVel[i * 3] * dt;
+      sparkPos[i * 3 + 1] += sparkVel[i * 3 + 1] * dt;
+      sparkPos[i * 3 + 2] += sparkVel[i * 3 + 2] * dt;
+    }
+    if (live || _anySpark) {
+      sparkGeo.attributes.position.needsUpdate = true;
+      sparkGeo.attributes.aLife.needsUpdate = true;
+    }
+    _anySpark = live;
+    sparks.visible = live;
+  }
+
+  /* ============================================================ registry */
+  var parts = [];
+  function add(obj, from, win, opts) {
+    opts = opts || {};
+    obj.userData.to = obj.position.clone();
+    obj.userData.from = from;
+    obj.userData.win = win;
+    obj.userData.fromScale = opts.fromScale === undefined ? 1 : opts.fromScale;
+    obj.userData.latched = false;
+    obj.userData.pulse = 0;
+    obj.userData.seed = Math.random();
+    (opts.parent || root).add(obj);
+    parts.push(obj);
+    return obj;
+  }
+
+  /* revolve a profile given as [radius, axialX] pairs around the engine axis (+X) */
+  function revolve(pts, seg) {
+    var v = [];
+    for (var i = 0; i < pts.length; i++) v.push(new THREE.Vector2(pts[i][0], pts[i][1]));
+    var g = new THREE.LatheGeometry(v, seg || 72);
+    g.rotateZ(-Math.PI / 2);          /* lathe's +Y axis becomes the engine's +X */
+    return g;
+  }
+  /* each part owns its edge material so it can flash on its own when it seats --
+     one shared material could only ever pulse all forty at once */
+  var edgeMats = [edgeMat];   /* the cowl's own edges are not built by edged() */
+  function edged(geo, mat, thresh) {
+    var m = new THREE.Mesh(geo, mat);
+    var em = edgeMat.clone();
+    edgeMats.push(em);
+    m.userData.em = em;
+    m.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo, thresh || 32), em));
+    return m;
+  }
+  function disc(rIn, rOut, x, w, mat) {
+    return edged(revolve([
+      [rIn, x - w / 2], [rOut, x - w / 2], [rOut, x + w / 2], [rIn, x + w / 2]
+    ], 64), mat);
+  }
+
+  /* ============================================================ geometry */
+  var FAN_X = 5.0, FAN_R = 3.85, HUB_R = 0.95;
+
+  /* 01 -- pylon, present from the first frame: the shot opens on an empty mount */
+  var pylon = new THREE.Group();
+  var strut = new THREE.Mesh(new THREE.BoxGeometry(6.4, 11.0, 0.85), M.dark);
+  strut.position.set(0.6, 11.0, 0); pylon.add(strut);
+  var yoke = new THREE.Mesh(new THREE.BoxGeometry(3.0, 0.7, 2.4), M.dark);
+  yoke.position.set(0.6, 5.4, 0); pylon.add(yoke);
+  /* ribs and shackles down the strut, so it stops reading as a plain slab.
+     (The overhead gantry that used to stand here is gone -- one of its posts
+     sat between the lens and the fan in the head-on shot.) */
+  for (var pr = 0; pr < 2; pr++) {
+    var rib = new THREE.Mesh(new THREE.BoxGeometry(6.1, 0.18, 0.92), M.bright);
+    rib.position.set(0.6, 6.9 + pr * 2.3, 0.42); pylon.add(rib);
+    var rib2 = rib.clone(); rib2.position.z = -0.42; pylon.add(rib2);
+  }
+  var shackle = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.26, 2.7, 12), M.bright);
+  shackle.rotation.x = Math.PI / 2;
+  shackle.position.set(-0.5, 5.62, 0); pylon.add(shackle);
+  var shackle2 = shackle.clone(); shackle2.position.x = 1.75; pylon.add(shackle2);
+  root.add(pylon);
+
+  /* 02 -- core shaft */
+  add(edged(revolve([[0, -4.2], [0.52, -4.2], [0.52, 4.4], [0, 4.4]], 40), M.dark),
+      new THREE.Vector3(0, 0, -34), asm(0.00, 0.11));
+
+  /* 03 -- LP booster discs */
+  for (var b = 0; b < 3; b++) {
+    add(disc(0.55, 1.45 - b * 0.06, 3.55 - b * 0.62, 0.30, M.bright),
+        new THREE.Vector3(0, 17, 0), asm(0.07 + b * 0.045, 0.18 + b * 0.045));
+  }
+
+  /* 04 -- HP compressor: one lathe with a stepped, tapering profile */
+  add(edged(revolve([
+        [0.58, 1.75], [1.62, 1.75], [1.54, 1.30], [1.44, 1.30], [1.38, 0.85],
+        [1.28, 0.85], [1.22, 0.40], [1.12, 0.40], [1.06, -0.05], [0.96, -0.05],
+        [0.92, -0.45], [0.58, -0.45]
+      ], 72), M.body),
+      new THREE.Vector3(0, 0, 26), asm(0.16, 0.30));
+
+  /* 05 -- combustor: outer can plus the emissive liner seen through the cutaway */
+  var canGeo = revolve([
+    [0.90, -0.55], [1.60, -0.75], [1.72, -1.35], [1.60, -1.95], [0.95, -2.05]
+  ], 72);
+  add(edged(canGeo, M.body), new THREE.Vector3(0, -18, 0), asm(0.25, 0.39));
+  var liner = new THREE.Mesh(revolve([
+    [1.02, -0.70], [1.44, -0.86], [1.52, -1.35], [1.42, -1.86], [1.04, -1.96]
+  ], 64), M.hot);
+  add(liner, new THREE.Vector3(0, -18, 0), asm(0.26, 0.40));
+
+  /* 06 -- HP and LP turbine discs */
+  for (var t2 = 0; t2 < 4; t2++) {
+    add(disc(0.60, 1.75 + t2 * 0.14, -2.45 - t2 * 0.55, 0.26, M.temper),
+        new THREE.Vector3(0, 0, -24), asm(0.34 + t2 * 0.034, 0.455 + t2 * 0.034));
+  }
+
+  /* 07 -- exhaust plug */
+  add(edged(revolve([
+        [1.55, -4.75], [1.28, -5.35], [0.82, -6.10], [0.20, -6.85], [0, -6.95]
+      ], 64), M.temper),
+      new THREE.Vector3(0, 0, -30), asm(0.43, 0.55));
+
+  /* 08 -- fan hub and spinner cone */
+  var rotor = new THREE.Group();          /* everything that turns */
+  rotor.position.set(FAN_X, 0, 0);
+  root.add(rotor);
+  var hub = edged(revolve([
+    [0, 1.55], [0.50, 1.30], [0.86, 0.72], [HUB_R, 0.10], [HUB_R, -0.42], [0, -0.42]
+  ], 56), M.bright);
+  /* the painted spiral every airliner spinner carries -- it is what makes a
+     turning fan legible as turning, even in a still frame */
+  var spiralPts = [];
+  for (var sp = 0; sp <= 40; sp++) {
+    var st = sp / 40, ang = st * Math.PI * 2.35, rr2 = 0.06 + st * 0.80;
+    spiralPts.push(new THREE.Vector3(
+      lerp(1.53, 0.34, st * st * 0.9 + st * 0.1),
+      Math.cos(ang) * rr2, Math.sin(ang) * rr2));
+  }
+  var spiral = new THREE.Mesh(
+    new THREE.TubeGeometry(new THREE.CatmullRomCurve3(spiralPts), 70, 0.035, 6, false),
+    new THREE.MeshStandardMaterial({ color: 0x0b0f16, roughness: 0.7, metalness: 0.2 }));
+  hub.add(spiral);
+  add(hub, new THREE.Vector3(0, 0, 22), asm(0.46, 0.57), { parent: rotor });
+
+  /* 09 -- fan blades: airfoil section extruded along span, then twisted + tapered */
+  function bladeGeometry() {
+    /* wide chord and a strong root twist, so the blades overlap head-on the way
+       a real fan does -- you should not be able to see straight through the disc */
+    var chord = 2.15, span = FAN_R - HUB_R + 0.15, thick = 0.24;
+    var s = new THREE.Shape();
+    s.moveTo(-chord / 2, 0);
+    s.bezierCurveTo(-chord * 0.25, thick, chord * 0.18, thick * 0.92, chord / 2, 0.012);
+    s.bezierCurveTo(chord * 0.18, -thick * 0.34, -chord * 0.25, -thick * 0.30, -chord / 2, 0);
+    var g = new THREE.ExtrudeGeometry(s, {
+      depth: span, bevelEnabled: false, curveSegments: 14, steps: 26
+    });
+    var pos = g.attributes.position, v = new THREE.Vector3();
+    for (var i = 0; i < pos.count; i++) {
+      v.fromBufferAttribute(pos, i);
+      var t = clamp(v.z / span, 0, 1);
+      var taper = lerp(1, 0.66, t);                 /* narrower at the tip */
+      var tw = lerp(1.16, 0.30, Math.pow(t, 0.74)); /* strong root twist */
+      var x = v.x * taper, y = v.y * taper;
+      var c = Math.cos(tw), sn = Math.sin(tw);
+      pos.setXYZ(i,
+        x * c - y * sn + t * t * 0.85,              /* swept leading edge */
+        x * sn + y * c,
+        v.z);
+    }
+    g.rotateX(-Math.PI / 2);   /* span (z) becomes radial (+y); chord stays on +x */
+    g.translate(0, HUB_R - 0.1, 0);
+    g.computeVertexNormals();  /* required after moving vertices, or metal shades wrong */
+    return g;
+  }
+  var BLADES = 20, bladeGeo = bladeGeometry(), bladeMeshes = [];
+  for (var i2 = 0; i2 < BLADES; i2++) {
+    var arm = new THREE.Group();
+    arm.rotation.x = (i2 / BLADES) * Math.PI * 2;
+    rotor.add(arm);
+    var bm = new THREE.Mesh(bladeGeo, M.blade);
+    bm.position.set(0, 0, 0);
+    var t0 = 0.52 + (i2 / BLADES) * 0.17;
+    add(bm, new THREE.Vector3(0, 5.6, 0), asm(t0, t0 + 0.05), { parent: arm });
+    bladeMeshes.push(bm);
+  }
+
+  /* exhaust glow: the combustor itself is buried behind the duct wall, so light-off
+     has to be legible where it actually shows on a real engine -- out the nozzle */
+  var glowMat = new THREE.MeshBasicMaterial({
+    color: 0xff7a26, transparent: true, opacity: 0,
+    blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide
+  });
+  var exhaustGlow = new THREE.Mesh(new THREE.CircleGeometry(1.62, 48), glowMat);
+  exhaustGlow.rotation.y = -Math.PI / 2;
+  exhaustGlow.position.set(-4.62, 0, 0);
+  root.add(exhaustGlow);
+
+  var haloMat = new THREE.MeshBasicMaterial({
+    color: 0xff9a4a, transparent: true, opacity: 0,
+    blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide
+  });
+  var exhaustHalo = new THREE.Mesh(new THREE.RingGeometry(1.55, 2.45, 48), haloMat);
+  exhaustHalo.rotation.y = -Math.PI / 2;
+  exhaustHalo.position.set(-4.55, 0, 0);
+  root.add(exhaustHalo);
+
+  /* ---- exhaust plume ------------------------------------------------------
+     A civil turbofan at takeoff shows no flame, only a hot, shimmering column.
+     So this is mostly transparent: a faint hot core at the nozzle that fades
+     aft, with shock diamonds appearing only once N1 is high. The one piece of
+     dramatic licence -- a brief reheat flare -- rides in on uReheat at the very
+     end of the scroll. ------------------------------------------------------ */
+  var plumeGeo = new THREE.CylinderGeometry(3.6, 1.45, 19, 40, 1, true);
+  plumeGeo.rotateZ(Math.PI / 2);          /* lathe +Y becomes the engine -X */
+  var plumeMat = new THREE.ShaderMaterial({
+    uniforms: {
+      uTime: { value: 0 }, uN1: { value: 0 }, uOpacity: { value: 0 },
+      uReheat: { value: 0 },
+      uCore: { value: new THREE.Color(0xff7a2a) },
+      uTip:  { value: new THREE.Color(0x9fc6ff) }
+    },
+    vertexShader: [
+      "varying vec2 vUv; varying float vFace;",
+      "void main(){ vUv = uv;",
+      "  vec4 mv = modelViewMatrix * vec4(position, 1.0);",
+      "  vec3 n = normalize(normalMatrix * normal);",
+      "  vFace = abs(dot(n, normalize(-mv.xyz)));",
+      "  gl_Position = projectionMatrix * mv; }"
+    ].join("\n"),
+    fragmentShader: [
+      "precision highp float;",
+      "varying vec2 vUv; varying float vFace;",
+      "uniform float uTime, uN1, uOpacity, uReheat; uniform vec3 uCore, uTip;",
+      "float h(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5); }",
+      "float n2(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);",
+      "  return mix(mix(h(i), h(i + vec2(1,0)), f.x),",
+      "             mix(h(i + vec2(0,1)), h(i + vec2(1,1)), f.x), f.y); }",
+      "float fbm(vec2 p){ return 0.62 * n2(p) + 0.30 * n2(p * 2.03 + 11.3); }",
+      "void main(){",
+      /* v runs 0 at the wide far end to 1 at the nozzle */
+      "  float ax = vUv.y;",
+      "  float turb = fbm(vec2(vUv.x * 9.0, ax * 5.0 - uTime * 2.4));",
+      "  float body = pow(ax, 2.4);",                    /* hottest at the throat */
+      "  float col_t = clamp(body * (0.55 + turb * 0.9), 0.0, 1.0);",
+      /* shock diamonds: standing nodes, and only once the nozzle is choked */
+      "  float dia = pow(max(sin(ax * 21.0 - 0.6), 0.0), 5.0)",
+      "            * smoothstep(0.74, 0.99, uN1) * smoothstep(0.30, 0.62, ax);",
+      "  vec3 c = mix(uCore, uTip, clamp(uReheat * 0.85 + dia * 0.5, 0.0, 1.0));",
+      "  float a = col_t * uOpacity + dia * (0.18 + uReheat * 0.8) * uOpacity;",
+      "  a *= smoothstep(0.0, 0.22, ax);",               /* fade the far tip out */
+      "  a *= vFace * vFace;",                           /* shell -> column      */
+      "  gl_FragColor = vec4(c * (1.0 + uReheat * 1.6), a);",
+      "}"
+    ].join("\n"),
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    side: THREE.DoubleSide
+  });
+  var plume = new THREE.Mesh(plumeGeo, plumeMat);
+  plume.position.set(-4.7 - 19 / 2, 0, 0);
+  plume.visible = false;
+  root.add(plume);
+
+  /* ---- intake vortex ------------------------------------------------------
+     The rope of condensed air a big fan pulls off wet tarmac. It is the single
+     most photographic detail on a running engine, and it only exists at power. */
+  var vortPts = [];
+  for (var vi = 0; vi <= 60; vi++) {
+    var vt = vi / 60;
+    var ang = vt * 11.5;
+    var rad = lerp(2.2, 0.30, vt * vt);
+    vortPts.push(new THREE.Vector3(
+      lerp(11.6, FAN_X + 1.4, vt * vt * 0.8 + vt * 0.2),
+      lerp(-7.2, 0, Math.pow(vt, 0.55)) + Math.sin(ang) * rad * 0.38,
+      Math.cos(ang) * rad));
+  }
+  var vortMat = new THREE.ShaderMaterial({
+    uniforms: { uTime: { value: 0 }, uOpacity: { value: 0 } },
+    vertexShader: [
+      "varying vec2 vUv;",
+      "void main(){ vUv = uv;",
+      "  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }"
+    ].join("\n"),
+    fragmentShader: [
+      "precision highp float; varying vec2 vUv; uniform float uTime, uOpacity;",
+      "void main(){",
+      "  float s = 0.5 + 0.5 * sin(vUv.x * 27.0 - uTime * 7.0);",
+      /* almost nothing at the tarmac end, densest where it enters the intake --
+         a rope of even brightness reads as a cable, not as condensing air */
+      "  float head = pow(smoothstep(0.02, 0.86, vUv.x), 2.0)",
+      "             * smoothstep(1.0, 0.86, vUv.x);",
+      "  float tube = sin(vUv.y * 3.14159);",           /* soft across the rope */
+      "  gl_FragColor = vec4(vec3(0.72, 0.84, 1.0),",
+      "    uOpacity * head * tube * (0.30 + max(s, 0.0) * 0.55));",
+      "}"
+    ].join("\n"),
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
+  });
+  var vortex = new THREE.Mesh(
+    new THREE.TubeGeometry(new THREE.CatmullRomCurve3(vortPts), 90, 0.17, 7, false),
+    vortMat);
+  vortex.visible = false;
+  root.add(vortex);
+
+  /* the turning disc: at speed a real fan reads as a translucent disc of streaks,
+     not twenty blades. Correct from every angle, unlike screen-space blur alone. */
+  var discGeo = new THREE.RingGeometry(HUB_R * 0.92, FAN_R + 0.04, 128, 1);
+  discGeo.rotateY(Math.PI / 2);
+  var discMat = new THREE.ShaderMaterial({
+    uniforms: {
+      uSpin: { value: 0 }, uOpacity: { value: 0 },
+      uCold: { value: new THREE.Color(0x6f8ba8) }, uHot: { value: new THREE.Color(0xd6e6ff) }
+    },
+    vertexShader: [
+      "varying vec2 vL;",
+      "void main(){ vL = position.yz;",
+      "  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }"
+    ].join("\n"),
+    fragmentShader: [
+      "precision highp float;",
+      "varying vec2 vL;",
+      "uniform float uSpin, uOpacity; uniform vec3 uCold, uHot;",
+      "void main(){",
+      "  float r = length(vL);",
+      "  float a = atan(vL.y, vL.x);",
+      "  float rn = clamp((r - " + (HUB_R * 0.92).toFixed(3) + ") / " +
+                  ((FAN_R + 0.04) - HUB_R * 0.92).toFixed(3) + ", 0.0, 1.0);",
+      /* streaks smear further out, the way tip speed smears more than root speed */
+      "  float s = 0.5 + 0.5 * sin(a * 20.0 + uSpin * 3.0 + rn * 5.2);",
+      "  s = pow(s, 2.2);",
+      "  float edge = smoothstep(0.0, 0.05, rn) * smoothstep(1.0, 0.93, rn);",
+      "  gl_FragColor = vec4(mix(uCold, uHot, s), uOpacity * edge * (0.30 + 0.70 * s));",
+      "}"
+    ].join("\n"),
+    transparent: true, depthWrite: false, side: THREE.DoubleSide
+  });
+  var fanDisc = new THREE.Mesh(discGeo, discMat);
+  fanDisc.position.set(FAN_X - 0.05, 0, 0);
+  fanDisc.visible = false;
+  root.add(fanDisc);
+
+  /* 10 -- outlet guide vanes, fixed to the duct rather than the rotor */
+  var vaneGeo = new THREE.BoxGeometry(0.62, FAN_R - 1.15, 0.075);
+  for (var v2 = 0; v2 < 24; v2++) {
+    var varm = new THREE.Group();
+    varm.rotation.x = (v2 / 24) * Math.PI * 2;
+    varm.position.set(FAN_X - 1.5, 0, 0);
+    root.add(varm);
+    var vm = new THREE.Mesh(vaneGeo, M.dark);
+    vm.rotation.y = 0.34;
+    vm.position.set(0, (FAN_R + 1.15) / 2, 0);
+    add(vm, new THREE.Vector3(0, FAN_R * 2.2, 0), asm(0.66 + (v2 % 4) * 0.018, 0.775), { parent: varm });
+  }
+
+  /* 11 -- bypass duct inner wall */
+  add(new THREE.Mesh(revolve([[2.05, 3.4], [2.35, 0.0], [2.15, -3.0], [1.95, -4.6]], 72),
+        new THREE.MeshStandardMaterial({ color: 0x46536a, roughness: 0.42, metalness: 0.85,
+          side: THREE.BackSide })),
+      new THREE.Vector3(0, 0, 20), asm(0.73, 0.82));
+
+  /* 12 -- inlet lip */
+  add(edged(revolve([
+        [FAN_R + 0.30, 6.05], [FAN_R + 0.62, 6.32], [FAN_R + 0.95, 6.10],
+        [FAN_R + 1.02, 5.60], [FAN_R + 0.95, 5.20]
+      ], 80), M.bright),
+      new THREE.Vector3(0, 0, 30), asm(0.77, 0.86));
+
+  /* 13 -- nacelle cowl, deliberately translucent so the core stays readable */
+  var cowlGeo = revolve([
+    [FAN_R + 0.95, 5.60], [FAN_R + 1.12, 3.40], [FAN_R + 1.05, 0.60],
+    [FAN_R + 0.72, -2.20], [FAN_R + 0.10, -4.30], [3.05, -5.05]
+  ], 80);
+  var cowl = new THREE.Mesh(cowlGeo, M.cowl);
+  cowl.add(new THREE.LineSegments(new THREE.EdgesGeometry(cowlGeo, 8), edgeMat));
+  add(cowl, new THREE.Vector3(0, 0, 34), asm(0.82, 0.955));
+
+  /* 14 -- accessory gearbox and plumbing under the core */
+  var gbox = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.95, 1.5), M.body);
+  gbox.position.set(1.1, -2.55, 0);
+  add(gbox, new THREE.Vector3(1.1, -16, 0), asm(0.91, 1.00));
+  for (var g2 = 0; g2 < 3; g2++) {
+    var tube = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 3.4, 10), M.bright);
+    tube.rotation.z = Math.PI / 2;
+    tube.position.set(0.9, -2.0 + g2 * 0.26, -0.55 + g2 * 0.5);
+    add(tube, new THREE.Vector3(0.9, -16, -0.55 + g2 * 0.5), asm(0.92 + g2 * 0.022, 1.00));
+  }
+
+  /* shadows on the solid metal only -- the additive glows, the fan disc and the
+     translucent cowl would each cast a wrong, opaque silhouette */
+  if (!LOW) {
+    root.traverse(function (o) {
+      if (!o.isMesh) return;
+      var m = o.material;
+      if (!m || m.transparent || m.blending === THREE.AdditiveBlending) return;
+      o.castShadow = true;
+      o.receiveShadow = true;
+    });
+  }
+
+  document.getElementById("s-parts").textContent = parts.length + " meshes";
+
+  /* ============================================================ shot list */
+  /* spherical framing keeps the engine composed while the camera moves */
+  /* radii are derived from each lens: visible height = 2*d*tan(vFov/2), and the
+     engine is ~13 long by ~10 across, so a 50mm needs ~28 units of standoff */
+  var SHOTS = [
+    { id: "01", name: "COLD OPEN",   p0: 0.00, p1: 0.10, fl: 28, T: "2.8",
+      az: [0.90, 0.74], el: [0.40, 0.27], r: [44, 34],
+      tgt: [[0, 3.4, 0], [0, 2.6, 0]], shake: 0 },
+    { id: "02", name: "CORE BUILD",  p0: 0.10, p1: 0.36, fl: 35, T: "2.0",
+      az: [1.22, 1.78], el: [-0.12, 0.36], r: [27, 22],
+      tgt: [[0.4, -0.3, 0], [0.8, 0.7, 0]], shake: 0 },
+    { id: "03", name: "FAN + NACELLE", p0: 0.36, p1: T.IGN, fl: 50, T: "2.0",
+      az: [1.95, 3.70], el: [0.28, 0.14], r: [31, 27],
+      tgt: [[1.6, 0.3, 0], [2.2, 0.4, 0]], shake: 0 },
+    /* rear quarter, looking into the nozzle: where light-off is actually visible */
+    { id: "04", name: "IGNITION",    p0: T.IGN, p1: T.SPOOL, fl: 85, T: "1.4",
+      az: [3.12, 3.91], el: [0.30, 0.05], r: [36, 27],
+      tgt: [[-3.0, 0.6, 0], [-4.3, 0.2, 0]], shake: 0.15 },
+    { id: "05", name: "SPOOL-UP",    p0: T.SPOOL, p1: T.THRUST, fl: 50, T: "1.4",
+      az: [1.5708, 1.5708], el: [0.03, 0.01], r: [32, 21],
+      tgt: [[FAN_X, 0, 0], [FAN_X, 0, 0]], shake: 0.35 },
+    { id: "06", name: "FULL THRUST", p0: T.THRUST, p1: 1.00, fl: 28, T: "2.0",
+      az: [1.12, 0.52], el: [-0.07, 0.14], r: [25, 40],
+      tgt: [[1.5, 0, 0], [-1.2, 1.2, 0]], shake: 0.6 }
+  ];
+  var TRANS = 0.016;   /* half-width of a dissolve, in progress units */
+
+  function flToFov(fl) { return 2 * Math.atan(12 / fl) * 180 / Math.PI; }
+
+  var _pos = new THREE.Vector3(), _tgt = new THREE.Vector3();
+  function shotAt(p, time) {
+    var s = SHOTS[0], i;
+    for (i = 0; i < SHOTS.length; i++) if (p >= SHOTS[i].p0) s = SHOTS[i];
+    var t = easeInOut(clamp((p - s.p0) / (s.p1 - s.p0), 0, 1));
+
+    var az = lerp(s.az[0], s.az[1], t);
+    var el = lerp(s.el[0], s.el[1], t);
+    /* the camera's FOV is vertical, so a narrow viewport loses horizontal field
+       and the engine overflows -- pull back to hold the same width on screen */
+    var r  = lerp(s.r[0], s.r[1], t) * clamp(1.9 / Math.max(camera.aspect, 0.4), 1, 1.85);
+    _tgt.set(lerp(s.tgt[0][0], s.tgt[1][0], t),
+             lerp(s.tgt[0][1], s.tgt[1][1], t),
+             lerp(s.tgt[0][2], s.tgt[1][2], t));
+    _pos.set(_tgt.x + r * Math.cos(el) * Math.sin(az),
+             _tgt.y + r * Math.sin(el),
+             _tgt.z + r * Math.cos(el) * Math.cos(az));
+
+    /* handheld drift plus thrust shake -- what stops the move reading as a robot arm */
+    if (!REDUCED) {
+      var amp = 0.05 + s.shake * 0.42;
+      _pos.x += Math.sin(time * 1.7) * amp * 0.55 + Math.sin(time * 4.3) * amp * 0.16;
+      _pos.y += Math.sin(time * 2.3 + 1.1) * amp * 0.62 + Math.sin(time * 6.1) * amp * 0.2;
+      _pos.z += Math.sin(time * 1.3 + 2.4) * amp * 0.5;
+    }
+
+    /* dip through black at shot boundaries; scrubbable, unlike a hard cut */
+    var dip = 0;
+    for (i = 1; i < SHOTS.length; i++) {
+      var d = Math.abs(p - SHOTS[i].p0);
+      if (d < TRANS) dip = Math.max(dip, 1 - d / TRANS);
+    }
+    return { pos: _pos, tgt: _tgt, fov: flToFov(s.fl), shot: s, dip: dip * dip };
+  }
+
+  /* ============================================================ post chain */
+  var QUAD_CAM = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+  var QUAD_GEO = new THREE.PlaneGeometry(2, 2);
+  var quadScene = new THREE.Scene();
+  var quadMesh = new THREE.Mesh(QUAD_GEO, null);
+  quadScene.add(quadMesh);
+  function blit(material, target) {
+    quadMesh.material = material;
+    renderer.setRenderTarget(target || null);
+    renderer.render(quadScene, QUAD_CAM);
+  }
+
+  var rtScene = new THREE.WebGLRenderTarget(2, 2, {
+    type: THREE.HalfFloatType,
+    samples: 4,
+    depthTexture: new THREE.DepthTexture(2, 2)
+  });
+
+  var VERT = [
+    "varying vec2 vUv;",
+    "void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }"
+  ].join("\n");
+
+  /* ---- bloom: bright pass then two separable-blur mips (halation) ---- */
+  function hdrTarget() {
+    return new THREE.WebGLRenderTarget(2, 2, {
+      type: THREE.HalfFloatType,
+      minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter
+    });
+  }
+  var rtBright = hdrTarget(), rtA1 = hdrTarget(), rtA2 = hdrTarget(),
+      rtB1 = hdrTarget(), rtB2 = hdrTarget();
+
+  var brightMat = new THREE.ShaderMaterial({
+    uniforms: { tScene: { value: rtScene.texture }, uThresh: { value: 1.05 } },
+    vertexShader: VERT,
+    fragmentShader: [
+      "precision highp float;",
+      "varying vec2 vUv;",
+      "uniform sampler2D tScene; uniform float uThresh;",
+      "void main(){",
+      "  vec3 c = texture2D(tScene, vUv).rgb;",
+      "  float l = dot(c, vec3(0.2126, 0.7152, 0.0722));",
+      "  float k = max(l - uThresh, 0.0) / max(l, 1e-4);",
+      "  gl_FragColor = vec4(c * k, 1.0);",
+      "}"
+    ].join("\n"),
+    depthTest: false, depthWrite: false
+  });
+
+  function blurMaterial() {
+    return new THREE.ShaderMaterial({
+      uniforms: { tSrc: { value: null }, uDir: { value: new THREE.Vector2(1, 0) } },
+      vertexShader: VERT,
+      fragmentShader: [
+        "precision highp float;",
+        "varying vec2 vUv;",
+        "uniform sampler2D tSrc; uniform vec2 uDir;",
+        "void main(){",
+        "  vec3 s = texture2D(tSrc, vUv).rgb * 0.2270270270;",
+        "  s += texture2D(tSrc, vUv + uDir * 1.3846153846).rgb * 0.3162162162;",
+        "  s += texture2D(tSrc, vUv - uDir * 1.3846153846).rgb * 0.3162162162;",
+        "  s += texture2D(tSrc, vUv + uDir * 3.2307692308).rgb * 0.0702702703;",
+        "  s += texture2D(tSrc, vUv - uDir * 3.2307692308).rgb * 0.0702702703;",
+        "  gl_FragColor = vec4(s, 1.0);",
+        "}"
+      ].join("\n"),
+      depthTest: false, depthWrite: false
+    });
+  }
+  var blurMat = blurMaterial();
+
+  /* ---- anamorphic streak: a horizontal-only blur of the bright pass. It is the
+     cheapest "shot on a real lens" cue there is, and it costs two blits. ---- */
+  var rtAn1 = hdrTarget(), rtAn2 = hdrTarget();
+
+  /* ---- radial blur, gated so it only acts when looking down the engine axis ---- */
+  var rtRadial = new THREE.WebGLRenderTarget(2, 2, {
+    type: THREE.HalfFloatType,
+    minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter
+  });
+  var radialMat = new THREE.ShaderMaterial({
+    uniforms: {
+      tSrc: { value: rtScene.texture },
+      uCenter: { value: new THREE.Vector2(0.5, 0.5) },
+      uStrength: { value: 0 }
+    },
+    vertexShader: VERT,
+    fragmentShader: [
+      "precision highp float;",
+      "varying vec2 vUv;",
+      "uniform sampler2D tSrc; uniform vec2 uCenter; uniform float uStrength;",
+      "void main(){",
+      "  vec2 d = vUv - uCenter;",
+      "  vec2 tang = vec2(-d.y, d.x);",       /* smear along rotation, not outward */
+      "  vec3 s = vec3(0.0); float w = 0.0;",
+      "  for (int i = -4; i <= 4; i++) {",
+      "    float f = float(i) / 4.0;",
+      "    float wt = 1.0 - abs(f) * 0.55;",
+      "    s += texture2D(tSrc, vUv + tang * f * uStrength).rgb * wt;",
+      "    w += wt;",
+      "  }",
+      "  gl_FragColor = vec4(s / w, 1.0);",
+      "}"
+    ].join("\n"),
+    depthTest: false, depthWrite: false
+  });
+
+  /* ---- defocus source: a half-res blur of the frame, mixed in by depth ---- */
+  var rtDof1 = hdrTarget(), rtDof2 = hdrTarget();
+  var texD = new THREE.Vector2();
+
+  function blurInto(srcTex, tmp, dst, texel) {
+    blurMat.uniforms.tSrc.value = srcTex;
+    blurMat.uniforms.uDir.value.set(texel.x, 0); blit(blurMat, tmp);
+    blurMat.uniforms.tSrc.value = tmp.texture;
+    blurMat.uniforms.uDir.value.set(0, texel.y); blit(blurMat, dst);
+  }
+  var texA = new THREE.Vector2(), texB = new THREE.Vector2();
+
+  /* ACES fit, the grade, grain, vignette and the 2.39:1 bars, all in one pass */
+  var composite = new THREE.ShaderMaterial({
+    uniforms: {
+      tScene: { value: rtScene.texture },
+      tBloomA: { value: rtA2.texture },
+      tBloomB: { value: rtB2.texture },
+      tBlur: { value: rtDof2.texture },
+      tDepth: { value: rtScene.depthTexture },
+      uBloom: { value: 0.46 },
+      uFocus: { value: 20 },
+      uCoc: { value: 1.0 },
+      uNear: { value: 0.35 },
+      uFar: { value: 400 },
+      uExposure: { value: 1.22 },
+      uTime: { value: 0 },
+      uDip: { value: 0 },
+      uBar: { value: 0.0 },      /* bar height in uv units, 0 in portrait */
+      tAnam: { value: rtAn1.texture },
+      uAnam: { value: 0.0 },
+      uHaze: { value: 0.0 },
+      uHazeC: { value: new THREE.Vector2(0.5, 0.5) },
+      uHazeZ: { value: 1e9 },
+      uGrain: { value: 0.055 },
+      uAber: { value: 0.0016 },
+      uRes: { value: new THREE.Vector2(1, 1) }
+    },
+    vertexShader: VERT,
+    fragmentShader: [
+      "precision highp float;",
+      "varying vec2 vUv;",
+      "uniform sampler2D tScene, tBloomA, tBloomB, tBlur, tDepth, tAnam;",
+      "uniform float uBloom, uExposure, uTime, uDip, uBar, uGrain, uAber;",
+      "uniform float uAnam, uHaze, uHazeZ; uniform vec2 uHazeC;",
+      "uniform float uFocus, uCoc, uNear, uFar;",
+      "uniform vec2 uRes;",
+
+      "vec3 aces(vec3 x){",
+      "  const float a=2.51, b=0.03, c=2.43, d=0.59, e=0.14;",
+      "  return clamp((x*(a*x+b))/(x*(c*x+d)+e), 0.0, 1.0);",
+      "}",
+      "float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453); }",
+
+      "void main(){",
+      "  vec2 uv = vUv;",
+      /* letterbox: everything outside the 2.39:1 frame is black */
+      "  if (uBar > 0.0 && (uv.y < uBar || uv.y > 1.0 - uBar)) {",
+      "    gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0); return;",
+      "  }",
+      /* heat shimmer off the nozzle. Screen-space distortion knows nothing about
+         occlusion, so it is gated on depth: only pixels at or behind the nozzle
+         shimmer. Without that, the head-on shot -- where the nozzle projects
+         straight onto the fan -- would ripple the fan face instead. */
+      "  if (uHaze > 0.001) {",
+      "    float ndc0 = texture2D(tDepth, uv).x * 2.0 - 1.0;",
+      "    float lz0 = (2.0 * uNear * uFar) / (uFar + uNear - ndc0 * (uFar - uNear));",
+      "    vec2 hd = (uv - uHazeC) * vec2(uRes.x / max(uRes.y, 1.0), 1.0);",
+      "    float hm = smoothstep(0.55, 0.02, length(hd)) * step(uHazeZ - 2.5, lz0);",
+      "    uv.x += (sin(uv.y * 88.0 + uTime * 6.4) + sin(uv.y * 37.0 - uTime * 3.9))",
+      "            * uHaze * hm * 0.0022;",
+      "    uv.y += sin(uv.x * 71.0 + uTime * 5.2) * uHaze * hm * 0.0016;",
+      "  }",
+      /* chromatic aberration, scaled by distance from centre */
+      "  vec2 d = uv - 0.5;",
+      "  float rr = dot(d, d);",
+      "  vec3 col;",
+      "  col.r = texture2D(tScene, uv + d * uAber * (1.0 + rr)).r;",
+      "  col.g = texture2D(tScene, uv).g;",
+      "  col.b = texture2D(tScene, uv - d * uAber * (1.0 + rr)).b;",
+
+      /* depth of field: circle of confusion straight off the depth buffer, so the
+         defocus tracks real scene distance rather than a painted-on gradient */
+      "  float ndc = texture2D(tDepth, uv).x * 2.0 - 1.0;",
+      "  float linZ = (2.0 * uNear * uFar) / (uFar + uNear - ndc * (uFar - uNear));",
+      "  float coc = clamp(abs(linZ - uFocus) / max(uFocus, 1.0) * uCoc, 0.0, 1.0);",
+      "  coc = smoothstep(0.06, 0.72, coc);",
+      "  col = mix(col, texture2D(tBlur, uv).rgb, coc);",
+
+      /* halation: the wide mip carries further, so weight it a little higher */
+      "  col += (texture2D(tBloomA, uv).rgb * 0.62 + texture2D(tBloomB, uv).rgb * 0.94) * uBloom;",
+      /* the streak is tinted cool: real anamorphic flare is blue, and it keeps
+         the effect from reading as more bloom */
+      "  col += texture2D(tAnam, uv).rgb * uAnam * vec3(0.46, 0.68, 1.0);",
+
+      "  col *= uExposure;",
+      "  col = aces(col);",
+      /* lift / gamma / gain: cool the shadows, hold the highlights neutral */
+      "  col = col * vec3(1.02, 1.00, 1.03) + vec3(-0.004, 0.0, 0.012);",
+      "  col = pow(max(col, 0.0), vec3(1.06, 1.02, 0.97));",
+      "  float lum = dot(col, vec3(0.2126, 0.7152, 0.0722));",
+      "  col = mix(vec3(lum), col, 1.12);",
+
+      "  col = pow(max(col, 0.0), vec3(1.0 / 2.2));",   /* linear -> sRGB */
+
+      "  float vig = smoothstep(0.95, 0.28, rr * 2.0);",
+      "  col *= mix(0.56, 1.0, vig);",
+
+      "  float g = hash(uv * uRes + fract(uTime) * 137.0) - 0.5;",
+      "  col += g * uGrain * (1.0 - 0.55 * lum);",
+
+      "  col *= (1.0 - uDip);",
+      "  gl_FragColor = vec4(col, 1.0);",
+      "}"
+    ].join("\n"),
+    depthTest: false, depthWrite: false
+  });
+  document.getElementById("s-post").textContent = "7 hand-written passes";
+
+  /* ============================================================ HUD */
+  var PHASES = [
+    ["01", "Mount",        0.00],      ["02", "Core shaft",  at(0.00)],
+    ["03", "Compressor",   at(0.16)],  ["04", "Combustor",   at(0.25)],
+    ["05", "Turbine",      at(0.34)],  ["06", "Fan hub",     at(0.46)],
+    ["07", "Fan blades",   at(0.52)],  ["08", "Nacelle",     at(0.77)],
+    ["09", "Ignition",     T.IGN],     ["10", "Spool-up",    T.SPOOL],
+    ["11", "Takeoff thrust", T.THRUST]
+  ];
+  var rail = document.getElementById("rail");
+  for (var ph = 0; ph < PHASES.length; ph++) {
+    var el0 = document.createElement("div");
+    el0.className = "p";
+    el0.innerHTML = "<em>" + PHASES[ph][0] + "</em><span>" + PHASES[ph][1] + "</span>";
+    rail.appendChild(el0);
+  }
+  var railEls = rail.querySelectorAll(".p");
+  var el = {
+    n1: document.getElementById("t-n1"), egt: document.getElementById("t-egt"),
+    fuel: document.getElementById("t-fuel"), thrust: document.getElementById("t-thrust"),
+    thrustRow: document.getElementById("t-thrust-row"), bar: document.getElementById("t-bar"),
+    stage: document.getElementById("t-stage"), shot: document.getElementById("c-shot"),
+    lens: document.getElementById("c-lens"), stop: document.getElementById("c-stop")
+  };
+  var lastPhase = -1, lastShot = -1;
+
+  function rpmAt(p) { return smoothstep(T.IGN + 0.01, T.THRUST + 0.04, p); }
+
+  function hud(p, s) {
+    var n1 = rpmAt(p);
+    el.n1.textContent = (n1 * 100).toFixed(1) + " %";
+    el.egt.textContent = Math.round(lerp(15, 620, smoothstep(T.IGN, 1, p))) + " °C";
+    el.fuel.textContent = Math.round(smoothstep(T.IGN + 0.01, 0.97, p) * 2800).toLocaleString("en-US") + " kg/h";
+    el.thrust.textContent = Math.round(smoothstep(T.SPOOL - 0.06, 1, p) * 320) + " kN";
+    el.thrustRow.classList.toggle("is-live", p > T.SPOOL - 0.06);
+    el.bar.style.width = (p * 100).toFixed(2) + "%";
+
+    var idx = 0, i;
+    for (i = 0; i < PHASES.length; i++) if (p >= PHASES[i][2]) idx = i;
+    if (idx !== lastPhase) {
+      lastPhase = idx;
+      el.stage.textContent = PHASES[idx][1];
+      for (i = 0; i < railEls.length; i++) {
+        railEls[i].classList.toggle("on", i === idx);
+        railEls[i].classList.toggle("done", i < idx);
+      }
+    }
+    if (s.shot.id !== lastShot) {
+      lastShot = s.shot.id;
+      el.shot.textContent = "SHOT " + s.shot.id;
+      el.lens.textContent = s.shot.fl + "mm";
+      el.stop.textContent = "T" + s.shot.T;
+    }
+  }
+
+  /* ============================================================ scroll */
+  var track = document.getElementById("track");
+  /* The ending is an overlay on the live film. Fade the camera furniture, never
+     the fixed WebGL stage; the sound control remains available. */
+  var instruments = [document.querySelector(".telemetry"), document.getElementById("rail"),
+                     document.querySelector(".slate"), document.querySelector(".frame"),
+                     document.querySelector(".hud-brand")];
+  var target = 0, current = 0;
+  function readScroll() {
+    var rect = track.getBoundingClientRect();
+    var total = Math.max(1, track.offsetHeight - window.innerHeight);
+    var raw = clamp(-rect.top / total, 0, 1);
+    target = scrollToStoryProgress(raw);
+    var fade = clamp((-rect.top - total) / (window.innerHeight * 0.5), 0, 1);
+    var op = String(1 - fade);
+    for (var i = 0; i < instruments.length; i++) instruments[i].style.opacity = op;
+  }
+
+  var beatEls = document.querySelectorAll(".beat");
+  var BEATS = [
+    [0.000, 0.000, 0.055, 0.100],
+    [0.105, 0.145, 0.300, 0.340],
+    [0.375, 0.415, 0.550, 0.590],
+    [T.IGN + 0.015, T.IGN + 0.055, T.SPOOL - 0.035, T.SPOOL],
+    [T.THRUST + 0.010, T.THRUST + 0.038, 1.000, 1.000]
+  ];
+  function beats(p) {
+    for (var i = 0; i < beatEls.length; i++) {
+      var r = BEATS[i];
+      var rise = r[0] === r[1] ? 1 : smoothstep(r[0], r[1], p);
+      var fall = r[2] === r[3] ? 0 : smoothstep(r[2], r[3], p);
+      var a = clamp(Math.min(rise, 1 - fall), 0, 1);
+      beatEls[i].style.opacity = a.toFixed(3);
+      beatEls[i].style.visibility = a < 0.012 ? "hidden" : "visible";
+      beatEls[i].style.transform = "translateY(" + ((1 - a) * 18).toFixed(2) + "px)";
+    }
+  }
+
+  /* ============================================================ apply */
+  var v3 = new THREE.Vector3(), spin = 0;
+  var _fwd = new THREE.Vector3(), _spinPt = new THREE.Vector3();
+  var _hz = new THREE.Vector3();
+
+  /* Edge-triggered when a part finishes seating. Two things had to be guarded:
+     the browser restores scroll position on reload, so at boot every already-
+     seated part would latch in one frame (forty clunks and a spark storm), and
+     dragging the scrollbar can cross ten windows between frames. */
+  var latchArmed = false, _lw = new THREE.Vector3();
+  function onLatch(o) {
+    o.userData.pulse = 1;
+    o.updateWorldMatrix(true, false);
+    o.getWorldPosition(_lw);
+    emitSparks(_lw, LOW ? 7 : 13);
+    A.clunk(o.userData.seed);
+  }
+
+  function apply(p, time, dt) {
+    var budget = 3;                         /* per frame, so a scrub cannot roar */
+    for (var i = 0; i < parts.length; i++) {
+      var o = parts[i], u = o.userData;
+      var e = smoothstep(u.win[0], u.win[1], p);
+      o.position.copy(v3.copy(u.from).lerp(u.to, e));
+      o.visible = e > 0.001;
+      if (u.fromScale !== 1) {
+        var sc = lerp(u.fromScale, 1, e);
+        o.scale.set(sc, sc, sc);
+      }
+      if (!u.latched && e > 0.985) {
+        u.latched = true;
+        if (latchArmed && budget > 0) { budget--; onLatch(o); }
+      } else if (u.latched && e < 0.5) {
+        u.latched = false;                  /* re-arm when scrubbed back */
+      }
+      if (u.pulse > 0) u.pulse = Math.max(0, u.pulse - dt * 2.2);
+    }
+    rotor.rotation.x = spin;
+
+    var burn = smoothstep(T.IGN - 0.005, T.IGN + 0.075, p);
+    M.hot.emissiveIntensity = burn * 3.4 + rpmAt(p) * 2.2;
+    under.intensity = burn * 1.1;
+    /* The nacelle remains a light holographic cutaway after it seats, so the core
+       never disappears at light-off. Only the internal construction edges recede. */
+    var cowlSeat = smoothstep(at(0.82), at(0.955), p);
+    M.cowl.opacity = lerp(0.10, 0.16, cowlSeat);
+    M.cowl.depthWrite = false;
+    M.cowl.transparent = true;
+    cowl.castShadow = false;
+    var edgeFade = smoothstep(T.ASM1 - 0.02, T.IGN + 0.05, p);
+    var eBase = lerp(0.46, 0.10, edgeFade);
+    for (var ei = 0; ei < edgeMats.length; ei++) edgeMats[ei].opacity = eBase;
+    edgeMat.opacity = lerp(0.46, 0.24, cowlSeat); /* hold the ghost shell's silhouette */
+    for (var pi = 0; pi < parts.length; pi++) {
+      var pu = parts[pi].userData;
+      if (pu.pulse > 0 && pu.em) pu.em.opacity = eBase + pu.pulse * 0.85;
+    }
+    /* a flicker on light-off that settles as the burn stabilises */
+    var flick = 1 + (1 - smoothstep(T.IGN + 0.01, T.IGN + 0.06, p)) * Math.sin(time * 37) * 0.30;
+    glowMat.opacity = burn * (0.26 + rpmAt(p) * 0.30) * flick;
+    haloMat.opacity = burn * (0.07 + rpmAt(p) * 0.11) * flick;
+
+    /* exhaust and intake, each gated to the only moment it belongs in */
+    var nn = rpmAt(p);
+    var reheat = smoothstep(0.968, 1.0, p);
+    plumeMat.uniforms.uTime.value = time;
+    plumeMat.uniforms.uN1.value = nn;
+    plumeMat.uniforms.uReheat.value = reheat;
+    plumeMat.uniforms.uOpacity.value = burn * (0.10 + nn * 0.26 + reheat * 0.55) * flick;
+    plume.visible = burn > 0.01;
+
+    var vOp = smoothstep(0.30, 0.80, nn) * 0.85;
+    vortMat.uniforms.uTime.value = time;
+    vortMat.uniforms.uOpacity.value = vOp;
+    vortex.visible = vOp > 0.012;
+
+    var s = shotAt(p, time);
+    camera.position.copy(s.pos);
+    camera.lookAt(s.tgt);
+    if (Math.abs(camera.fov - s.fov) > 0.001) {
+      camera.fov = s.fov;
+      camera.updateProjectionMatrix();
+    }
+    composite.uniforms.uDip.value = s.dip;
+
+    /* the turning disc takes over from the blades as N1 climbs */
+    var n1 = rpmAt(p);
+    var swap = smoothstep(0.16, 0.62, n1);
+    M.blade.opacity = lerp(1, 0.16, swap);
+    discMat.uniforms.uOpacity.value = swap * 0.40;
+    discMat.uniforms.uSpin.value = spin;
+    fanDisc.visible = swap > 0.01;
+
+    /* focus: normally the shot target; in the ignition shot it racks from a
+       near foreground plane back onto the combustor */
+    var camDist = camera.position.distanceTo(s.tgt);
+    var focus = camDist;
+    if (s.shot.id === "04") {
+      var rt = easeInOut(clamp((p - s.shot.p0) / (s.shot.p1 - s.shot.p0), 0, 1));
+      focus = lerp(camDist * 0.74, camDist, smoothstep(0.08, 0.62, rt));
+    }
+    composite.uniforms.uFocus.value = focus;
+    composite.uniforms.uCoc.value = parseFloat(s.shot.T) < 1.6 ? 1.75 : 1.05;
+
+    /* drive the mix off the same numbers the picture uses */
+    A.setThrust(smoothstep(T.SPOOL - 0.06, 1, p));
+    if (latchArmed && !ignited && p >= T.IGN) { ignited = true; A.ignite(); }
+    else if (ignited && p < T.IGN - 0.02) { ignited = false; }
+
+    hud(p, s);
+    beats(p);
+    return s;
+  }
+  var ignited = false;
+
+  /* ============================================================ resize */
+  var W = 1, H = 1;
+  function resize() {
+    W = window.innerWidth; H = window.innerHeight;
+    renderer.setSize(W, H, false);
+    var pw = Math.max(2, Math.floor(W * DPR)), pht = Math.max(2, Math.floor(H * DPR));
+    rtScene.setSize(pw, pht);
+    composite.uniforms.uRes.value.set(pw, pht);
+
+    var aw = Math.max(2, pw >> 2), ah = Math.max(2, pht >> 2);
+    var bw = Math.max(2, pw >> 3), bh = Math.max(2, pht >> 3);
+    rtBright.setSize(aw, ah); rtA1.setSize(aw, ah); rtA2.setSize(aw, ah);
+    rtB1.setSize(bw, bh); rtB2.setSize(bw, bh);
+    rtAn1.setSize(aw, ah); rtAn2.setSize(aw, ah);
+    texA.set(1 / aw, 1 / ah);
+    texB.set(1 / bw, 1 / bh);
+
+    rtRadial.setSize(pw, pht);
+    var dw = Math.max(2, pw >> 1), dh = Math.max(2, pht >> 1);
+    rtDof1.setSize(dw, dh); rtDof2.setSize(dw, dh);
+    texD.set(1.6 / dw, 1.6 / dh);
+    composite.uniforms.uNear.value = camera.near;
+    composite.uniforms.uFar.value = camera.far;
+    camera.aspect = W / H;
+    camera.updateProjectionMatrix();
+
+    /* 2.39:1 bars, but only on landscape -- in portrait they would eat the frame */
+    var bar = 0;
+    if (W / H > 1.5) {
+      var frameH = W / 2.39;
+      bar = Math.max(0, (H - frameH) / 2 / H);
+    }
+    composite.uniforms.uBar.value = bar;
+    document.documentElement.style.setProperty("--bar", (bar * H).toFixed(1) + "px");
+  }
+
+  /* ============================================================ loop */
+  var clock = new THREE.Clock(), lastShadowP = -1;
+  function frame() {
+    var dt = Math.min(clock.getDelta(), 0.05);
+    var time = clock.elapsedTime;
+
+    /* frame-rate independent: the old per-frame 0.085 eased twice as fast at 144Hz */
+    current += REDUCED ? (target - current)
+                       : (target - current) * (1 - Math.pow(0.02, dt));
+    if (REDUCED) current = target;
+
+    /* rotation accumulates over time, so the fan keeps turning when scroll is held */
+    if (!REDUCED) {
+      spin += dt * rpmAt(current) * 26;
+      dust.rotation.y += dt * 0.012;               /* barely-there drift */
+      dust.position.y = Math.sin(time * 0.19) * 0.5;
+    }
+
+    var s = apply(current, time, dt);
+    stepSparks(dt);
+
+    /* re-shadow only while the machine is actually moving */
+    if (!LOW && Math.abs(current - lastShadowP) > 0.0007) {
+      renderer.shadowMap.needsUpdate = true;
+      lastShadowP = current;
+    }
+    composite.uniforms.uTime.value = REDUCED ? 0 : time;
+
+    renderer.setRenderTarget(rtScene);
+    renderer.clear();
+    renderer.render(scene, camera);
+
+    /* radial blur only earns its cost when the camera looks down the axis --
+       off-axis it would smear the cowl instead of the fan */
+    var fwd = _fwd.copy(s.tgt).sub(camera.position).normalize();
+    var align = Math.abs(fwd.x);
+    var rad = rpmAt(current) * align * align * 0.030;
+    var src = rtScene.texture;
+    if (rad > 0.0006) {
+      _spinPt.set(FAN_X, 0, 0).project(camera);
+      radialMat.uniforms.uCenter.value.set(_spinPt.x * 0.5 + 0.5, _spinPt.y * 0.5 + 0.5);
+      radialMat.uniforms.uStrength.value = rad;
+      radialMat.uniforms.tSrc.value = rtScene.texture;
+      blit(radialMat, rtRadial);
+      src = rtRadial.texture;
+    }
+    composite.uniforms.tScene.value = src;
+    brightMat.uniforms.tScene.value = src;
+
+    blurInto(src, rtDof1, rtDof2, texD);         /* defocus source       */
+    blit(brightMat, rtBright);                   /* isolate highlights   */
+    blurInto(rtBright.texture, rtA1, rtA2, texA); /* quarter-res mip      */
+    blurInto(rtA2.texture, rtB1, rtB2, texB);     /* eighth-res wide mip  */
+
+    if (!LOW) {
+      blurMat.uniforms.tSrc.value = rtBright.texture;
+      blurMat.uniforms.uDir.value.set(texA.x * 1.5, 0); blit(blurMat, rtAn1);
+      blurMat.uniforms.tSrc.value = rtAn1.texture;
+      blurMat.uniforms.uDir.value.set(texA.x * 5, 0);   blit(blurMat, rtAn2);
+      blurMat.uniforms.tSrc.value = rtAn2.texture;
+      blurMat.uniforms.uDir.value.set(texA.x * 15, 0);  blit(blurMat, rtAn1);
+      composite.uniforms.uAnam.value = 0.22;
+    }
+
+    /* heat shimmer: the nozzle's screen position and view depth, computed here
+       where the camera matrices are already up to date for this frame */
+    var hb = smoothstep(T.IGN - 0.005, T.IGN + 0.075, current);
+    if (hb > 0.004 && s.shot.id !== "05") {
+      _hz.set(-9.5, 0, 0).project(camera);
+      composite.uniforms.uHazeC.value.set(_hz.x * 0.5 + 0.5, _hz.y * 0.5 + 0.5);
+      var nz = camera.near, fz = camera.far;
+      composite.uniforms.uHazeZ.value =
+        (2 * nz * fz) / (fz + nz - _hz.z * (fz - nz));
+      composite.uniforms.uHaze.value = hb * (0.45 + rpmAt(current) * 1.15);
+    } else {
+      composite.uniforms.uHaze.value = 0;
+    }
+
+    blit(composite, null);
+
+    requestAnimationFrame(frame);
+  }
+
+  window.addEventListener("scroll", readScroll, { passive: true });
+  window.addEventListener("resize", function () { resize(); readScroll(); });
+
+  /* one silent pass so every part already in place is marked latched, THEN the
+     events go live -- otherwise a reload mid-page fires the whole assembly */
+  resize();
+  readScroll();
+  current = target;
+  apply(current, 0, 0);
+  latchArmed = true;
+  ignited = current >= T.IGN;
+  requestAnimationFrame(frame);
+
+  /* ---- audio toggle: the one control on the page ---- */
+  (function () {
+    var btn = document.getElementById("audio-btn");
+    var lbl = document.getElementById("audio-lbl");
+    if (!btn) return;
+    btn.addEventListener("click", function () {
+      var on = A.muted;                     /* about to become unmuted */
+      /* must happen inside the gesture -- an AudioContext built anywhere else
+         is born suspended and stays that way */
+      document.documentElement.dataset.audio = A.arm();
+      A.setMuted(!on);
+      btn.classList.toggle("on", on);
+      btn.setAttribute("aria-pressed", on ? "true" : "false");
+      lbl.textContent = on ? "SOUND ON" : "SOUND OFF";
+    });
+  })();
+})();
+</script>
+</body>
+</html>

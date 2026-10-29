@@ -1,0 +1,14 @@
+# Local backups and validation captures
+turbofan.html.bak
+validation-*.png
+
+# Python
+__pycache__/
+*.py[cod]
+
+# Editors and operating systems
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
