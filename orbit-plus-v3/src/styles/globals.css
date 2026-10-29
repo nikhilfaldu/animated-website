@@ -1,0 +1,376 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Core black & white palette */
+    --bg: 10 10 10;  /* #0A0A0A - near black */
+    --fg: 245 245 245; /* #F5F5F5 - near white */
+
+    /* Single accent - neutralized for black/white system */
+    --accent: 0 0% 96%;
+
+    /* Utility values */
+    --radius: 22px;
+    --transition: 160ms cubic-bezier(0.4, 0, 0.2, 1);
+
+    /* Scroll-driven variables */
+    --scroll-progress: 0;
+    --scroll-velocity: 0;
+
+    /* Emblem position */
+    --emblem-x: 90vw;
+    --emblem-y: 10vh;
+
+    /* Clarity & Magic Guardrails - 70% clarity, 30% magic */
+    /* Default to clarity mode values */
+    --clarity-opacity: 1;
+    --magic-opacity: 0.8;
+    --clarity-blur: 0px;
+    --magic-blur: 4px;
+    --clarity-scale: 1;
+    --magic-scale: 1.04;
+
+    /* Active mode variables (default: clarity) */
+    --mode-opacity: var(--clarity-opacity);
+    --mode-scale: var(--clarity-scale);
+    --mode-blur: var(--clarity-blur);
+
+  }
+  
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+  
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
+  
+  html,
+  body,
+  #root {
+    width: 100%;
+    height: 100%;
+    overflow-x: clip;
+  }
+  
+  body {
+    background-color: rgb(var(--bg));
+    color: rgb(var(--fg));
+    font-family: 'Syne', system-ui, sans-serif;
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    line-height: 1.5;
+    font-weight: 400;
+  }
+
+  /* Grain overlay - subtle texture */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 9999;
+    opacity: 0.035;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+    background-repeat: repeat;
+  }
+
+  /* Emblem watermark texture */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1;  /* Below content but above body background */
+    opacity: 0.02;  /* Very subtle */
+    background-image: url('../assets/backgroundv2.png');
+    background-repeat: repeat;
+    background-size: 900px;  /* Control emblem size */
+    filter: invert(1);
+    mix-blend-mode: screen;
+  }
+  
+  /* Typography scale - minimal and clean */
+  .h0 {
+    font-size: clamp(48px, 10vw, 128px);
+    line-height: 0.9;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+  }
+
+  /* Mobile: smaller hero text to prevent line breaks */
+  @media (max-width: 640px) {
+    .h0 {
+      font-size: clamp(28px, 8vw, 48px);
+    }
+  }
+  
+  .h1 {
+    font-size: clamp(34px, 6.8vw, 72px);
+    line-height: 0.95;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+  
+  .h2 {
+    font-size: clamp(24px, 3.4vw, 40px);
+    line-height: 1.05;
+    font-weight: 500;
+  }
+  
+  .p {
+    font-size: clamp(16px, 1.4vw, 18px);
+    line-height: 1.6;
+    max-width: 68ch;
+  }
+  
+  /* Links - no color by default */
+  a {
+    color: inherit;
+    text-decoration: none;
+    transition: opacity var(--transition);
+  }
+  
+  a:hover {
+    opacity: 0.7;
+  }
+  
+  /* Canvas container for Three.js */
+  .canvas-container {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+  }
+  
+  /* Content layer */
+  .content-layer {
+    position: relative;
+    z-index: 1;
+    pointer-events: auto;
+  }
+
+  /* Theme switching */
+[data-theme="light"] {
+  --bg: 245 245 245;
+  --fg: 10 10 10;
+}
+
+[data-theme="dark"] {
+  --bg: 10 10 10;
+  --fg: 245 245 245;
+}
+
+/* Clarity & Magic mode switching - 70% clarity, 30% magic */
+[data-mode="clarity"] {
+  --mode-opacity: var(--clarity-opacity);
+  --mode-scale: var(--clarity-scale);
+  --mode-blur: var(--clarity-blur);
+}
+
+[data-mode="magic"] {
+  --mode-opacity: var(--magic-opacity);
+  --mode-scale: var(--magic-scale);
+  --mode-blur: var(--magic-blur);
+}
+  
+  /* Reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    * {
+      animation: none !important;
+      transition: none !important;
+    }
+  }
+}
+
+@layer components {
+  /* Main app container - renamed to avoid Tailwind's .container conflict */
+  .app-container {
+    @apply relative w-full min-h-screen;
+  }
+
+  .global-nav {
+    padding-top: max(1rem, env(safe-area-inset-top));
+    padding-left: max(1rem, env(safe-area-inset-left));
+    color: #ffffff;
+    mix-blend-mode: difference;
+  }
+  
+  /* Section blocks */
+  .section {
+    @apply relative w-full min-h-screen;
+    @apply px-4 py-12 md:px-8 md:py-24;
+    padding-top: calc(3rem + env(safe-area-inset-top));
+    padding-bottom: calc(3rem + env(safe-area-inset-bottom));
+  }
+
+  @media (min-width: 768px) {
+    .section {
+      padding-top: calc(6rem + env(safe-area-inset-top));
+      padding-bottom: calc(6rem + env(safe-area-inset-bottom));
+    }
+  }
+  
+  /* Text utilities - no color, just structure */
+  .display {
+    font-family: 'Syne', system-ui, sans-serif;
+    letter-spacing: -0.02em;
+  }
+
+  .font-big-shoulders {
+    font-family: 'Big Shoulders Display', 'Syne', system-ui, sans-serif;
+    font-variation-settings: 'wght' 400;
+  }
+
+  .marquee-track {
+    display: inline-flex;
+    white-space: nowrap;
+    will-change: transform;
+    animation: marquee-ltr var(--marquee-duration, 22s) linear infinite;
+  }
+
+  .descriptor-justify {
+    text-align: justify;
+    text-justify: inter-character;
+    text-align-last: justify;
+  }
+
+  @keyframes marquee-ltr {
+    0% {
+      transform: translateX(-50%);
+    }
+    100% {
+      transform: translateX(0);
+    }
+  }
+  
+  /* Button - minimal with subtle border */
+  .btn {
+    @apply inline-flex items-center justify-center;
+    @apply gap-3 px-6 py-3;
+    @apply border border-white/20 rounded-full;
+    @apply transition-all duration-[var(--transition)];
+    @apply hover:border-white/40;
+    @apply active:scale-95;
+    min-height: 44px;
+    background: transparent;
+    color: rgb(var(--fg));
+    font-weight: 500;
+  }
+
+  /* Button - filled primary */
+  .btn-primary {
+    @apply inline-flex items-center justify-center;
+    @apply gap-3 px-6 py-3;
+    @apply border border-fg/100 rounded-full;
+    @apply transition-all duration-[var(--transition)];
+    @apply active:scale-95;
+    min-height: 44px;
+    background: rgb(var(--fg));
+    color: rgb(var(--bg));
+    font-weight: 600;
+  }
+
+  .btn-primary:hover {
+    background: transparent;
+    color: rgb(var(--fg));
+  }
+
+  /* Button with accent - used VERY sparingly */
+  .btn-accent {
+    @apply btn;
+    @apply border-transparent;
+    background: hsl(var(--accent));
+    color: rgb(var(--bg));
+  }
+  
+  .btn-accent:hover {
+    background: hsl(var(--accent) / 0.9);
+  }
+  
+  /* Subtle dividers */
+  .divider {
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgb(var(--fg) / 0.1) 20%,
+      rgb(var(--fg) / 0.1) 80%,
+      transparent
+    );
+  }
+  
+  /* Ghost elements for subtle depth */
+  .ghost {
+    opacity: 0.05;
+  }
+  
+  .ghost-hover {
+    @apply transition-opacity duration-[var(--transition)];
+    @apply hover:opacity-10;
+  }
+}
+
+@layer utilities {
+  /* Minimal animations */
+  .animate-slow-rotate {
+    animation: rotate 20s linear infinite;
+  }
+  
+  @keyframes rotate {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+  
+  /* Hide scrollbar but keep functionality */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  
+  /* Accent color - used ONLY for critical emphasis */
+  .accent {
+    color: hsl(var(--accent));
+  }
+  
+  /* Subtle blur backdrop */
+  .backdrop-blur-subtle {
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+  
+  /* Mix blend for interesting overlaps */
+  .mix-difference {
+    mix-blend-mode: difference;
+  }
+  
+  /* GPU acceleration */
+  .gpu {
+    transform: translateZ(0);
+    will-change: transform;
+  }
+
+  /* Screen reader only - visually hidden but accessible */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+  }
+}

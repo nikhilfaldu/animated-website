@@ -1,0 +1,351 @@
+Below is a full fix that makes the mask behave like you intended: only a few cutouts are visible at any moment, with an optional “hero window” tied to the currently active label.
+
+⸻
+
+1) Process.tsx: pass scroll progress into PanelMask
+
+// Process.tsx
+import { useRef } from 'react';
+import { useScroll } from 'framer-motion';
+import { EmblemField } from './EmblemField';
+import { PanelMask } from './PanelMask';
+import { ParallaxLabels } from './ParallaxLabels';
+import { SECTION_HEIGHT_VH } from './processData';
+
+interface ProcessProps {
+  sectionHeight?: number;
+}
+
+export function Process({ sectionHeight = SECTION_HEIGHT_VH }: ProcessProps) {
+  const sectionRef = useRef<HTMLElement>(null);
+
+  const { scrollYProgress } = useScroll({
+    target: sectionRef,
+    offset: ['start end', 'end start'],
+  });
+
+  return (
+    <section
+      ref={sectionRef}
+      id="process"
+      className="relative w-full"
+      style={{ height: `${sectionHeight}vh` }}
+      aria-label="Our Process"
+    >
+      <div className="sr-only">
+        <h2>Our Process</h2>
+        <p>
+          We follow a three-phase approach: Discover and Define, Design the System,
+          and Build and Launch. Each phase is carefully crafted to deliver
+          exceptional results.
+        </p>
+      </div>
+
+      <EmblemField scrollProgress={scrollYProgress} />
+
+      {/* ✅ pass scrollProgress so cutouts can actually choreograph */}
+      <PanelMask scrollProgress={scrollYProgress} />
+
+      <ParallaxLabels scrollProgress={scrollYProgress} />
+
+      <div
+        className="absolute left-0 right-0 flex justify-center pointer-events-none"
+        style={{ zIndex: 50, top: '2vh' }}
+      >
+        <div className="text-center">
+          <span className="text-white/40 text-sm uppercase tracking-[0.3em]">
+            Our Process
+          </span>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+
+⸻
+
+2) processData.ts: add labelId to your “hero” cutouts (and fix label overlap)
+
+You already built the right scaffolding (labelId, startProgress/endProgress). You just need to actually use it.
+
+Minimal edits to CUTOUTS (add labelId to 4 hero windows)
+
+// processData.ts (only showing the 4 lines to edit)
+
+{ id: 'A3', startProgress: 0.10, endProgress: 0.24, top: 11.5, left: 24.5, width: 6, height: 9, labelId: 'L1' },
+
+{ id: 'D1', startProgress: 0.46, endProgress: 0.62, top: 51.5, left: 10, width: 6, height: 8, labelId: 'L2' },
+
+{ id: 'C2', startProgress: 0.36, endProgress: 0.52, top: 37.5, left: 37.5, width: 8, height: 7, labelId: 'L3' },
+
+{ id: 'F1', startProgress: 0.68, endProgress: 0.84, top: 69.5, left: 31.5, width: 10, height: 7, labelId: 'L4' },
+
+Fix LABELS so only one is “active” at a time
+
+Right now L2 and L3 overlap heavily and both say “Design the System”, which is visually confusing even if everything else is perfect.
+
+export const LABELS: LabelConfig[] = [
+  {
+    id: 'L1',
+    title: 'Discover & Define',
+    description: 'We lock the brief: audience, constraints, and the measurable win. Clarity first so motion has purpose.',
+    startProgress: 0.0,
+    endProgress: 0.22,
+    position: 'right',
+    top: 4,
+  },
+  {
+    id: 'L2',
+    title: 'Design the System',
+    description: 'Type, motion, and interaction language snap into a coherent kit, distinctive but durable.',
+    startProgress: 0.22,
+    endProgress: 0.48,
+    position: 'left',
+    top: 22,
+  },
+  {
+    id: 'L3',
+    title: 'Prototype & Refine',
+    description: 'Rapid iterations reveal what works. We test, adjust, and polish until every detail clicks.',
+    startProgress: 0.48,
+    endProgress: 0.70,
+    position: 'right',
+    top: 36,
+  },
+  {
+    id: 'L4',
+    title: 'Build & Launch',
+    description: 'We ship performant, accessible components with instrumentation baked in, ready to iterate.',
+    startProgress: 0.70,
+    endProgress: 0.90,
+    position: 'left-center',
+    top: 50,
+  },
+];
+
+
+⸻
+
+3) PanelMask.tsx: actually choreograph cutouts + keep max 4 visible
+
+This version:
+	•	Receives scrollProgress
+	•	Filters cutouts by startProgress/endProgress
+	•	Chooses one hero window for the active label (if present)
+	•	Adds up to 3 accents
+	•	Adds a subtle cutout edge stroke so the overlay reads like a layer (less flat)
+
+// PanelMask.tsx
+import { memo, useState, useEffect, useMemo } from 'react';
+import { type MotionValue, useMotionValueEvent } from 'framer-motion';
+import {
+  CUTOUTS,
+  MOBILE_CUTOUTS,
+  SECTION_HEIGHT_VH,
+  LABELS,
+  MOBILE_LABELS,
+  type CutoutConfig,
+  type LabelConfig,
+} from './processData';
+
+function useIsMobile(breakpoint = 640) {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth <= breakpoint);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, [breakpoint]);
+
+  return isMobile;
+}
+
+function cutoutToRect(x: number, y: number, w: number, h: number): string {
+  const r = Math.min(0.8, w * 0.15, h * 0.15);
+  return `
+    M ${x + r} ${y}
+    L ${x + w - r} ${y}
+    Q ${x + w} ${y} ${x + w} ${y + r}
+    L ${x + w} ${y + h - r}
+    Q ${x + w} ${y + h} ${x + w - r} ${y + h}
+    L ${x + r} ${y + h}
+    Q ${x} ${y + h} ${x} ${y + h - r}
+    L ${x} ${y + r}
+    Q ${x} ${y} ${x + r} ${y}
+    Z
+  `;
+}
+
+function generateMaskPath(cutouts: CutoutConfig[]): string {
+  const outer = `M 0 0 L 100 0 L 100 100 L 0 100 Z`;
+  const holes = cutouts
+    .map((c) => cutoutToRect(c.left, c.top, c.width, c.height))
+    .join(' ');
+  return `${outer} ${holes}`;
+}
+
+function clamp01(n: number) {
+  return Math.max(0, Math.min(1, n));
+}
+
+function pickActiveLabel(labels: LabelConfig[], progress: number): LabelConfig | null {
+  const active = labels.filter((l) => progress >= l.startProgress && progress <= l.endProgress);
+  if (active.length === 0) return null;
+  if (active.length === 1) return active[0];
+
+  // If overlap ever happens, pick closest to its midpoint
+  const byMid = active
+    .map((l) => ({ l, mid: (l.startProgress + l.endProgress) / 2 }))
+    .sort((a, b) => Math.abs(progress - a.mid) - Math.abs(progress - b.mid));
+  return byMid[0].l;
+}
+
+function area(c: CutoutConfig) {
+  return c.width * c.height;
+}
+
+function selectCutoutsForMoment(
+  all: CutoutConfig[],
+  labels: LabelConfig[],
+  progress: number,
+  maxVisible: number
+): CutoutConfig[] {
+  const visible = all.filter((c) => progress >= c.startProgress && progress <= c.endProgress);
+
+  if (visible.length <= maxVisible) return visible;
+
+  const activeLabel = pickActiveLabel(labels, progress);
+
+  // Hero window: prefer cutouts explicitly linked to the active label
+  let hero: CutoutConfig | null = null;
+
+  if (activeLabel) {
+    const linked = visible.filter((c) => c.labelId === activeLabel.id);
+    if (linked.length) {
+      hero = linked.sort((a, b) => area(b) - area(a))[0];
+    }
+  }
+
+  // Fallback hero: biggest visible cutout
+  if (!hero) hero = visible.sort((a, b) => area(b) - area(a))[0];
+
+  // Accents: smallest-ish ones that are NOT the hero
+  const accents = visible
+    .filter((c) => c.id !== hero!.id)
+    .sort((a, b) => area(a) - area(b))
+    .slice(0, Math.max(0, maxVisible - 1));
+
+  return [hero!, ...accents];
+}
+
+export const PanelMask = memo(function PanelMask({
+  scrollProgress,
+}: {
+  scrollProgress: MotionValue<number>;
+}) {
+  const isMobile = useIsMobile();
+
+  const allCutouts = isMobile ? MOBILE_CUTOUTS : CUTOUTS;
+  const labels = isMobile ? MOBILE_LABELS : LABELS;
+
+  // Only update the mask when the *selected set* changes (not on every tick)
+  const [selected, setSelected] = useState<CutoutConfig[]>(() =>
+    selectCutoutsForMoment(allCutouts, labels, 0, isMobile ? 3 : 4)
+  );
+
+  useEffect(() => {
+    // When viewport switches sets, re-select
+    setSelected(selectCutoutsForMoment(allCutouts, labels, 0, isMobile ? 3 : 4));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMobile]);
+
+  useMotionValueEvent(scrollProgress, 'change', (p) => {
+    const progress = clamp01(p);
+    const next = selectCutoutsForMoment(allCutouts, labels, progress, isMobile ? 3 : 4);
+
+    // Shallow compare by id to avoid rerenders
+    const same =
+      next.length === selected.length && next.every((c, i) => c.id === selected[i]?.id);
+
+    if (!same) setSelected(next);
+  });
+
+  const maskPath = useMemo(() => generateMaskPath(selected), [selected]);
+
+  return (
+    <div
+      className="absolute inset-x-0 top-0 pointer-events-none"
+      style={{
+        height: `${SECTION_HEIGHT_VH}vh`,
+        zIndex: 20,
+      }}
+      aria-hidden="true"
+    >
+      <svg
+        width="100%"
+        height="100%"
+        viewBox="0 0 100 100"
+        preserveAspectRatio="none"
+        className="block w-full h-full"
+      >
+        <path d={maskPath} fill="rgb(var(--bg))" fillRule="evenodd" />
+
+        {/* subtle edge cue so the overlay reads like a layer */}
+        {selected.map((c) => (
+          <path
+            key={`edge-${c.id}`}
+            d={cutoutToRect(c.left, c.top, c.width, c.height)}
+            fill="none"
+            stroke="rgba(255,255,255,0.06)"
+            strokeWidth={0.25}
+          />
+        ))}
+      </svg>
+    </div>
+  );
+});
+
+Result: the section immediately stops feeling “busy”, because there is finally a hierarchy. Only a few apertures exist at a time, and one of them is clearly the moment’s window.
+
+⸻
+
+4) ParallaxLabels.tsx: stop showing all labels all the time
+
+You currently hardcode opacity = 1, which makes everything compete even more. This adds a clean fade in/out per label.
+
+Replace the opacity block inside ParallaxLabel with this:
+
+// inside ParallaxLabel component
+
+const fadeInEnd = startProgress + range * 0.18;
+const fadeOutStart = endProgress - range * 0.18;
+
+const opacity = useTransform(scrollProgress, (p) => {
+  if (p < startProgress || p > endProgress) return 0;
+
+  if (p <= fadeInEnd) {
+    return (p - startProgress) / Math.max(0.0001, fadeInEnd - startProgress);
+  }
+
+  if (p >= fadeOutStart) {
+    return 1 - (p - fadeOutStart) / Math.max(0.0001, endProgress - fadeOutStart);
+  }
+
+  return 1;
+});
+
+And then use it in the style (remove the old const opacity = 1;):
+
+style={{
+  top: yOffset,
+  opacity,
+  scale,
+  zIndex: 30,
+}}
+
+
+⸻
+
+If you apply just these changes, your section will read like: controlled reveal, single primary window, motion as reward, not “pattern field”. If you want the cutouts to feel even more intentional, the next move is adding a gentle “snap” transition when the hero window switches (scale the outline stroke for 150ms). But the gating fix above is the big win.

@@ -1,0 +1,689 @@
+Step 2
+
+Work Selection System Spec (Selection Model + Viewfinder + Watermark + Scroll Focus)
+
+PURPOSE
+This file is executed AFTER Step 1 is complete.
+
+Step 1 establishes the baton architecture:
+
+Process → Reveal (WebGL aperture assembly) → Reveal (crossfade cue) → Work
+
+Step 2 builds the Work section into a real selection surface that is consistent across:
+	•	Hover (desktop)
+	•	Scroll focus (mobile and desktop)
+	•	Keyboard focus (accessibility parity)
+
+And it introduces the two Step 2 signature layers:
+	•	Viewfinder frame (animated “selection lock”)
+	•	Watermark (subtle emblem presence + slice highlight)
+
+This step does NOT implement the exposure windows bridge. That is Step 3.
+
+────────────────────────────────────────────────────────────────────────
+NON NEGOTIABLES
+	•	Must work without hover.
+	•	Must work on mobile (scroll focus is primary there).
+	•	Keyboard focus must behave identically to scroll focus.
+	•	Must not fight the OrbitSystem emblem:
+	•	OrbitSystem emblem is z 60 and long lived.
+	•	Step 2 overlays must stay beneath it (z 45–55) and remain subtle.
+	•	Watermark opacity must remain low (5–8% max).
+	•	No negative margin overlap hacks.
+	•	Work must sit cleanly under Reveal (Reveal handles the transition runway).
+
+────────────────────────────────────────────────────────────────────────
+GOAL STATE (WHAT “DONE” LOOKS LIKE)
+
+When Work enters:
+	•	One project is “active” by default (first card).
+	•	As the user scrolls, the card most centered in the viewport becomes active.
+	•	On desktop, hover temporarily previews a project, but scroll and keyboard can still override.
+	•	On tab navigation, focus becomes active.
+	•	The viewfinder frame animates to the active card (spring).
+	•	The watermark subtly responds:
+	•	faint emblem watermark in background
+	•	one highlighted slice (or quadrant) correlates with active project
+	•	Index ticks respond to state:
+	•	active tick brightens and pulses slightly
+	•	hover tick responds without changing active unless user commits (click or focus)
+
+────────────────────────────────────────────────────────────────────────
+FILES TO ADD / MODIFY
+
+RESTRUCTURE (required)
+Move Work into a folder.
+
+Create:
+src/sections/Work/
+├── index.ts
+├── Work.tsx
+├── useWorkSelection.ts
+├── WorkViewfinder.tsx
+├── WorkWatermark.tsx
+└── workData.ts
+
+Remove or replace:
+src/sections/Work.tsx (old flat file)
+
+────────────────────────────────────────────────────────────────────────
+DATA MODEL (workData.ts)
+
+Work projects must provide stable ids and bridge-ready preview fields.
+Even though Step 3 uses previews, Step 2 must include them now so the system is ready.
+
+Minimum fields:
+	•	id: string
+	•	title: string
+	•	description: string
+	•	href: string
+	•	screenshotUrl: string (can be thum.io or local)
+	•	previewImageUrl: string (first 4 are used by Step 3)
+	•	previewFocalPoint?: string
+	•	sliceIndex?: number (0..31 optional; used to rotate watermark highlight)
+
+Implementation:
+
+// src/sections/Work/workData.ts
+export type WorkProject = {
+  id: string;
+  title: string;
+  description: string;
+  href: string;
+
+  // Existing behavior support (your current thum.io style overlays)
+  screenshotUrl: string;
+
+  // Bridge readiness (Step 3)
+  previewImageUrl: string;
+  previewFocalPoint?: string;
+
+  // Watermark slice highlight (Step 2)
+  sliceIndex?: number; // 0..31
+};
+
+export const PROJECTS: WorkProject[] = [
+  {
+    id: 'project-1',
+    title: 'Project One',
+    description: 'Short description for Project One.',
+    href: '#',
+    screenshotUrl: 'https://image.thum.io/get/width/1200/https://example.com',
+    previewImageUrl: 'https://image.thum.io/get/width/1600/https://example.com',
+    previewFocalPoint: '50% 45%',
+    sliceIndex: 2,
+  },
+  {
+    id: 'project-2',
+    title: 'Project Two',
+    description: 'Short description for Project Two.',
+    href: '#',
+    screenshotUrl: 'https://image.thum.io/get/width/1200/https://example.com',
+    previewImageUrl: 'https://image.thum.io/get/width/1600/https://example.com',
+    previewFocalPoint: '50% 50%',
+    sliceIndex: 10,
+  },
+  {
+    id: 'project-3',
+    title: 'Project Three',
+    description: 'Short description for Project Three.',
+    href: '#',
+    screenshotUrl: 'https://image.thum.io/get/width/1200/https://example.com',
+    previewImageUrl: 'https://image.thum.io/get/width/1600/https://example.com',
+    previewFocalPoint: '50% 45%',
+    sliceIndex: 18,
+  },
+  {
+    id: 'project-4',
+    title: 'Project Four',
+    description: 'Short description for Project Four.',
+    href: '#',
+    screenshotUrl: 'https://image.thum.io/get/width/1200/https://example.com',
+    previewImageUrl: 'https://image.thum.io/get/width/1600/https://example.com',
+    previewFocalPoint: '50% 50%',
+    sliceIndex: 26,
+  },
+];
+
+Replace those placeholders with your real items. Do not change the order of the first 4 once you wire Step 3.
+
+────────────────────────────────────────────────────────────────────────
+SELECTION MODEL (useWorkSelection.ts)
+
+The selection model must support 3 sources of “current project”:
+	•	Hover: temporary preview (desktop only)
+	•	Scroll focus: IntersectionObserver chooses the most centered card
+	•	Keyboard focus: focus equals active
+
+Rules:
+	•	Hover may override the “active” display ONLY while hovering.
+	•	Scroll and keyboard set the persistent active selection.
+	•	Clicking a card sets active and locks it (until scroll or keyboard changes it again).
+
+Implementation:
+
+// src/sections/Work/useWorkSelection.ts
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+
+export type SelectionSource = 'init' | 'scroll' | 'keyboard' | 'click';
+
+export type WorkSelectionState = {
+  activeId: string;
+  hoveredId: string | null;
+  focusedId: string | null;
+  source: SelectionSource;
+};
+
+export type WorkSelectionApi = {
+  // derived
+  displayId: string;
+
+  // state
+  state: WorkSelectionState;
+
+  // refs for measurement + observers
+  registerCardRef: (id: string) => (el: HTMLElement | null) => void;
+  getCardEl: (id: string) => HTMLElement | null;
+  getActiveRect: () => DOMRect | null;
+
+  // actions
+  setActive: (id: string, source: SelectionSource) => void;
+  setHovered: (id: string | null) => void;
+  setFocused: (id: string | null) => void;
+};
+
+type Options = {
+  ids: string[];
+  // Intersection behavior tuning
+  rootMargin?: string;
+  threshold?: number | number[];
+};
+
+export function useWorkSelection(opts: Options): WorkSelectionApi {
+  const ids = useMemo(() => opts.ids, [opts.ids]);
+  const firstId = ids[0] ?? '';
+
+  const cardRefs = useRef<Record<string, HTMLElement | null>>({});
+
+  const [state, setState] = useState<WorkSelectionState>({
+    activeId: firstId,
+    hoveredId: null,
+    focusedId: null,
+    source: 'init',
+  });
+
+  const setActive = useCallback((id: string, source: SelectionSource) => {
+    if (!id) return;
+    setState((s) => (s.activeId === id && s.source === source ? s : { ...s, activeId: id, source }));
+  }, []);
+
+  const setHovered = useCallback((id: string | null) => {
+    setState((s) => (s.hoveredId === id ? s : { ...s, hoveredId: id }));
+  }, []);
+
+  const setFocused = useCallback((id: string | null) => {
+    setState((s) => (s.focusedId === id ? s : { ...s, focusedId: id }));
+  }, []);
+
+  const registerCardRef = useCallback(
+    (id: string) => (el: HTMLElement | null) => {
+      cardRefs.current[id] = el;
+    },
+    []
+  );
+
+  const getCardEl = useCallback((id: string) => cardRefs.current[id] ?? null, []);
+
+  const getActiveRect = useCallback(() => {
+    const el = cardRefs.current[state.activeId];
+    return el ? el.getBoundingClientRect() : null;
+  }, [state.activeId]);
+
+  // Display priority: hover > focus > active
+  const displayId = state.hoveredId ?? state.focusedId ?? state.activeId;
+
+  // IntersectionObserver: choose the most “centered” card in viewport
+  useEffect(() => {
+    if (!ids.length) return;
+
+    const margin = opts.rootMargin ?? '-35% 0px -35% 0px';
+    const threshold = opts.threshold ?? [0.25, 0.5, 0.75];
+
+    const scores = new Map<string, number>();
+
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          const id = (e.target as HTMLElement).dataset.workId;
+          if (!id) continue;
+
+          // Score: intersection ratio + closeness to viewport center
+          const r = e.boundingClientRect;
+          const centerY = r.top + r.height / 2;
+          const viewportCenter = window.innerHeight / 2;
+          const dist = Math.abs(centerY - viewportCenter);
+          const distNorm = 1 - Math.min(1, dist / viewportCenter);
+
+          const score = (e.intersectionRatio * 0.7) + (distNorm * 0.3);
+          scores.set(id, e.isIntersecting ? score : 0);
+        }
+
+        // Pick best score
+        let bestId = state.activeId;
+        let best = -1;
+
+        for (const id of ids) {
+          const sc = scores.get(id) ?? 0;
+          if (sc > best) {
+            best = sc;
+            bestId = id;
+          }
+        }
+
+        if (bestId && bestId !== state.activeId) {
+          setActive(bestId, 'scroll');
+        }
+      },
+      { root: null, rootMargin: margin, threshold }
+    );
+
+    for (const id of ids) {
+      const el = cardRefs.current[id];
+      if (el) io.observe(el);
+    }
+
+    return () => io.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ids.join('|')]);
+
+  return {
+    displayId,
+    state,
+    registerCardRef,
+    getCardEl,
+    getActiveRect,
+    setActive,
+    setHovered,
+    setFocused,
+  };
+}
+
+────────────────────────────────────────────────────────────────────────
+VIEWFINDER (WorkViewfinder.tsx)
+
+The viewfinder is a fixed overlay frame that springs to the selected card’s bounding box.
+It must:
+	•	be pointer-events none
+	•	remain subtle
+	•	animate smoothly on resize/scroll
+	•	update when the active or hovered displayId changes
+
+Implementation:
+
+// src/sections/Work/WorkViewfinder.tsx
+import { useEffect, useMemo, useState } from 'react';
+import { motion } from 'framer-motion';
+
+type Rect = { left: number; top: number; width: number; height: number } | null;
+
+type Props = {
+  rect: DOMRect | null;
+  visible: boolean;
+};
+
+function toRect(r: DOMRect | null): Rect {
+  if (!r) return null;
+  return { left: r.left, top: r.top, width: r.width, height: r.height };
+}
+
+export function WorkViewfinder({ rect, visible }: Props) {
+  const [r, setR] = useState<Rect>(toRect(rect));
+
+  useEffect(() => {
+    setR(toRect(rect));
+  }, [rect?.left, rect?.top, rect?.width, rect?.height]);
+
+  const show = visible && !!r;
+
+  const target = useMemo(() => {
+    if (!r) return { left: 0, top: 0, width: 0, height: 0 };
+    return r;
+  }, [r]);
+
+  return (
+    <motion.div
+      aria-hidden="true"
+      className="fixed inset-0 pointer-events-none"
+      style={{ zIndex: 52 }}
+      animate={{ opacity: show ? 1 : 0 }}
+      transition={{ duration: 0.18 }}
+    >
+      <motion.div
+        className="absolute rounded-2xl border border-white/25"
+        animate={target}
+        transition={{ type: 'spring', stiffness: 420, damping: 42, mass: 0.7 }}
+        style={{
+          boxShadow: '0 0 0 1px rgba(255,255,255,0.06), 0 18px 50px rgba(0,0,0,0.35)',
+          backdropFilter: 'blur(1px)',
+        }}
+      />
+
+      {/* corner ticks */}
+      <motion.div
+        className="absolute"
+        animate={target}
+        transition={{ type: 'spring', stiffness: 420, damping: 42, mass: 0.7 }}
+        style={{ pointerEvents: 'none' }}
+      >
+        <div className="absolute -left-2 -top-2 h-4 w-4 border-l border-t border-white/50" />
+        <div className="absolute -right-2 -top-2 h-4 w-4 border-r border-t border-white/50" />
+        <div className="absolute -left-2 -bottom-2 h-4 w-4 border-l border-b border-white/50" />
+        <div className="absolute -right-2 -bottom-2 h-4 w-4 border-r border-b border-white/50" />
+      </motion.div>
+    </motion.div>
+  );
+}
+
+────────────────────────────────────────────────────────────────────────
+WATERMARK (WorkWatermark.tsx)
+
+The watermark is a faint emblem echo behind the Work grid with a slice highlight.
+This is not the OrbitSystem emblem. It is a background presence.
+
+Implementation: a circular conic highlight that rotates based on sliceIndex.
+
+// src/sections/Work/WorkWatermark.tsx
+import { motion } from 'framer-motion';
+
+type Props = {
+  sliceIndex: number; // 0..31
+  visible: boolean;
+};
+
+export function WorkWatermark({ sliceIndex, visible }: Props) {
+  const degPer = 360 / 32;
+  const rot = sliceIndex * degPer;
+
+  return (
+    <motion.div
+      aria-hidden="true"
+      className="absolute inset-0 pointer-events-none"
+      style={{ zIndex: 45 }}
+      animate={{ opacity: visible ? 1 : 0 }}
+      transition={{ duration: 0.25 }}
+    >
+      <div className="absolute inset-0 flex items-center justify-center">
+        {/* base faint disc */}
+        <div
+          className="rounded-full"
+          style={{
+            width: 'min(72vmin, 680px)',
+            height: 'min(72vmin, 680px)',
+            border: '1px solid rgba(255,255,255,0.05)',
+            opacity: 0.08,
+          }}
+        />
+
+        {/* slice highlight */}
+        <motion.div
+          className="absolute rounded-full"
+          animate={{ rotate: rot }}
+          transition={{ type: 'spring', stiffness: 220, damping: 28, mass: 0.9 }}
+          style={{
+            width: 'min(72vmin, 680px)',
+            height: 'min(72vmin, 680px)',
+            background:
+              'conic-gradient(from 0deg, rgba(255,255,255,0.16) 0deg 10deg, rgba(255,255,255,0.00) 10deg 360deg)',
+            maskImage: 'radial-gradient(circle at center, transparent 0 28%, black 34% 100%)',
+            WebkitMaskImage: 'radial-gradient(circle at center, transparent 0 28%, black 34% 100%)',
+            opacity: 0.55,
+          }}
+        />
+      </div>
+    </motion.div>
+  );
+}
+
+Keep watermark subtle. If it reads too strong, reduce the conic alpha.
+
+────────────────────────────────────────────────────────────────────────
+WORK SECTION (Work.tsx)
+
+Requirements:
+	•	Cards must have stable ids for Step 3:
+id=“work-card-${project.id}”
+	•	Cards must expose dataset id for intersection focus:
+data-work-id=”${project.id}”
+	•	Cards must register refs for selection + viewfinder rect measurement
+	•	Hover, focus, click handlers must route through selection model
+	•	Work grid must be in final layout immediately (no conditional mount that shifts positions)
+
+Implementation:
+
+// src/sections/Work/Work.tsx
+import { useEffect, useMemo, useState } from 'react';
+import { motion, useReducedMotion } from 'framer-motion';
+import { PROJECTS } from './workData';
+import { useWorkSelection } from './useWorkSelection';
+import { WorkViewfinder } from './WorkViewfinder';
+import { WorkWatermark } from './WorkWatermark';
+
+export function Work() {
+  const prefersReducedMotion = useReducedMotion();
+  const ids = useMemo(() => PROJECTS.map((p) => p.id), []);
+
+  const sel = useWorkSelection({
+    ids,
+    rootMargin: '-35% 0px -35% 0px',
+    threshold: [0.25, 0.5, 0.75],
+  });
+
+  const activeProject = useMemo(() => {
+    return PROJECTS.find((p) => p.id === sel.displayId) ?? PROJECTS[0];
+  }, [sel.displayId]);
+
+  const [rect, setRect] = useState<DOMRect | null>(null);
+
+  // Keep rect in sync with displayId + resize/scroll
+  useEffect(() => {
+    let raf = 0;
+
+    const measure = () => {
+      const el = sel.getCardEl(sel.displayId);
+      if (!el) return;
+      setRect(el.getBoundingClientRect());
+    };
+
+    const measureSoon = () => {
+      if (raf) cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(measure);
+    };
+
+    measureSoon();
+    window.addEventListener('resize', measureSoon);
+    window.addEventListener('scroll', measureSoon, { passive: true });
+
+    return () => {
+      if (raf) cancelAnimationFrame(raf);
+      window.removeEventListener('resize', measureSoon);
+      window.removeEventListener('scroll', measureSoon);
+    };
+  }, [sel, sel.displayId]);
+
+  // Preload first 4 preview images (supports Step 3, avoids decode hitch)
+  useEffect(() => {
+    for (const p of PROJECTS.slice(0, 4)) {
+      const img = new Image();
+      img.decoding = 'async';
+      img.src = p.previewImageUrl;
+    }
+  }, []);
+
+  const slice = activeProject?.sliceIndex ?? 0;
+
+  return (
+    <section id="work" className="relative w-full bg-black text-white">
+      <div className="relative mx-auto max-w-6xl px-6 pt-28 pb-28">
+        <WorkWatermark sliceIndex={slice} visible={!prefersReducedMotion} />
+        <WorkViewfinder rect={rect} visible={!prefersReducedMotion} />
+
+        <header className="relative z-10 mb-10">
+          <div className="text-xs tracking-[0.22em] text-white/60">WORK</div>
+          <h2 className="mt-3 text-3xl sm:text-4xl font-semibold">Selected Projects</h2>
+          <p className="mt-4 max-w-2xl text-white/70">
+            Scroll, hover, or tab through. The selection system is unified across input modes.
+          </p>
+        </header>
+
+        <div className="relative z-10 grid grid-cols-1 sm:grid-cols-2 gap-6">
+          {PROJECTS.slice(0, 4).map((project) => {
+            const isActive = sel.displayId === project.id;
+
+            return (
+              <motion.article
+                key={project.id}
+                id={`work-card-${project.id}`}
+                data-work-id={project.id}
+                ref={sel.registerCardRef(project.id)}
+                tabIndex={0}
+                className="group relative overflow-hidden rounded-2xl border border-white/10 bg-white/5 focus:outline-none focus:ring-2 focus:ring-white/30"
+                onMouseEnter={() => sel.setHovered(project.id)}
+                onMouseLeave={() => sel.setHovered(null)}
+                onFocus={() => {
+                  sel.setFocused(project.id);
+                  sel.setActive(project.id, 'keyboard');
+                }}
+                onBlur={() => sel.setFocused(null)}
+                onClick={() => sel.setActive(project.id, 'click')}
+                initial={false}
+                animate={{
+                  borderColor: isActive ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.10)',
+                }}
+                transition={{ duration: 0.18 }}
+              >
+                {/* screenshot layer */}
+                <div className="absolute inset-0">
+                  <div
+                    className="absolute inset-0"
+                    style={{
+                      backgroundImage: `url(${project.screenshotUrl})`,
+                      backgroundSize: 'cover',
+                      backgroundPosition: project.previewFocalPoint ?? '50% 50%',
+                      filter: isActive ? 'blur(0px)' : 'blur(2px)',
+                      transform: 'scale(1.03)',
+                      opacity: 0.72,
+                    }}
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-black/10" />
+                </div>
+
+                <div className="relative z-10 p-6">
+                  <div className="text-xs tracking-[0.18em] text-white/55">
+                    {isActive ? 'ACTIVE' : ' '}
+                  </div>
+                  <h3 className="mt-2 text-lg font-semibold">{project.title}</h3>
+                  <p className="mt-3 text-sm text-white/70">{project.description}</p>
+
+                  <div className="mt-5 flex items-center gap-3 text-sm text-white/70">
+                    <span className="inline-block h-[1px] w-10 bg-white/20" />
+                    <a className="hover:text-white" href={project.href}>
+                      Open
+                    </a>
+                  </div>
+                </div>
+
+                {/* micro response */}
+                <motion.div
+                  className="absolute inset-0"
+                  initial={false}
+                  animate={{ opacity: isActive ? 1 : 0 }}
+                  transition={{ duration: 0.18 }}
+                >
+                  <div className="absolute inset-0 ring-1 ring-white/10" />
+                </motion.div>
+              </motion.article>
+            );
+          })}
+        </div>
+
+        {/* index ticks */}
+        <div className="relative z-10 mt-10 flex gap-2">
+          {PROJECTS.slice(0, 4).map((p) => {
+            const on = sel.displayId === p.id;
+            return (
+              <motion.button
+                key={p.id}
+                type="button"
+                className="h-6 w-6 rounded-full border border-white/15"
+                style={{ background: 'transparent' }}
+                onMouseEnter={() => sel.setHovered(p.id)}
+                onMouseLeave={() => sel.setHovered(null)}
+                onFocus={() => {
+                  sel.setFocused(p.id);
+                  sel.setActive(p.id, 'keyboard');
+                }}
+                onBlur={() => sel.setFocused(null)}
+                onClick={() => sel.setActive(p.id, 'click')}
+                aria-label={`Select ${p.title}`}
+              >
+                <motion.div
+                  className="mx-auto mt-[7px] h-[2px] w-3 rounded-full bg-white/40"
+                  initial={false}
+                  animate={{
+                    opacity: on ? 1 : 0.35,
+                    scaleX: on ? 1.15 : 1,
+                  }}
+                  transition={{ type: 'spring', stiffness: 360, damping: 28 }}
+                />
+              </motion.button>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+────────────────────────────────────────────────────────────────────────
+EXPORT (index.ts)
+
+// src/sections/Work/index.ts
+export { Work } from './Work';
+export { PROJECTS } from './workData';
+export type { WorkProject } from './workData';
+
+────────────────────────────────────────────────────────────────────────
+INTEGRATION REQUIREMENTS
+
+Where you render sections, update imports:
+	•	Replace old Work import with import { Work } from '@/sections/Work';
+
+Z layering:
+	•	OrbitSystem emblem remains z 60
+	•	WorkViewfinder is z 52
+	•	Watermark is z 45
+	•	Work text content is z 10 in local section stacking (fine)
+
+No special coupling is required to Reveal beyond:
+	•	Reveal handles WebGL + baton cue
+	•	Work is stable in DOM with measurable card ids (required for Step 3)
+
+────────────────────────────────────────────────────────────────────────
+REDUCED MOTION
+
+If prefers reduced motion:
+	•	Viewfinder hides (visible false)
+	•	Watermark hides
+	•	Work remains fully usable and scroll focus / keyboard selection still functions
+
+────────────────────────────────────────────────────────────────────────
+STEP 2 DONE CHECKLIST
+	•	Hover changes display selection on desktop
+	•	Scroll focus changes active selection on all devices
+	•	Tabbing through cards sets active selection
+	•	Viewfinder frame springs to selected card
+	•	Watermark slice rotates with selection and remains subtle
+	•	Card ids exist: work-card-${id}
+	•	data-work-id exists for IntersectionObserver
+
+End Step 2.

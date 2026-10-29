@@ -1,0 +1,330 @@
+Here’s the clean way to get a convincing “iris shutter click” in three.js without fighting your SVG paths as literal moving blades: render your logo normally, then animate an iris mask in a shader (polar coordinates + N blades). This also sidesteps your “center is offset” issue because you can center the SVG geometry by its bounding box before masking. (Centering via geometry.center() is a standard fix when rotation/pivots are off.)  ￼
+
+Below are (1) the most relevant references I found, then (2) a copy paste runnable three.js TypeScript module that:
+	•	builds an SVG from your EMBLEM_PATHS
+	•	loads it via SVGLoader  ￼
+	•	recenters it by bounds (fixing your offset)
+	•	overlays a shader based iris shutter (N blades, twist, feather)
+	•	exposes triggerShutter() for the click animation
+
+⸻
+
+Web references worth stealing from (conceptually)
+	•	SVGLoader docs (loading + turning SVG paths into three.js objects)  ￼
+	•	Centering geometry for correct pivot/rotation (geometry.center() concept applies similarly to groups via bounding box centering)  ￼
+	•	Polar coordinates basics (the exact atan + length math you’ll use in the fragment shader)  ￼
+	•	If you run into a polar seam or angle wrapping weirdness, this thread is the usual diagnosis path  ￼
+	•	For “shutter feel” timing (not WebGL, but good motion reference), there are GSAP/SVG shutter demos  ￼
+
+⸻
+
+Copy paste: three.js iris shutter demo (uses your EMBLEM_PATHS)
+
+Assumes Vite or similar bundler that supports three/examples/jsm/*.
+Install: npm i three
+
+// iris-shutter-demo.ts
+import * as THREE from "three";
+import { SVGLoader } from "three/examples/jsm/loaders/SVGLoader.js";
+
+// ----- Your paths -----
+export const EMBLEM_PATHS = [
+  "m388.5,15.02l.29,162c-4.16-.44-8.37-.66-12.64-.65-2.35,0-4.67.06-6.96.21l-.3-167.48c6.62,1.74,13.18,3.71,19.6,5.93",
+  "m389.2,410.31l.29,160.9c-6.42,2.24-12.97,4.24-19.58,6l-.29-166.38c2.29.14,4.61.19,6.96.19,4.27,0,8.48-.24,12.64-.7",
+  "m259.46,283.57c-.3,3.39-.44,6.84-.43,10.32,0,3.11.12,6.19.38,9.24L.22,303.6c-.15-3.25-.21-6.5-.22-9.78,0-3.31.05-6.56.18-9.78l259.28-.46Z",
+  "m587.72,292.77c0,3.28-.02,6.53-.18,9.78l-94.18.17c.25-3.05.36-6.14.35-9.24,0-3.48-.15-6.93-.47-10.32l94.26-.17c.18,3.22.21,6.48.22,9.78",
+  "m302.29,202.7c-5.08,4.11-9.79,8.67-14.08,13.57L124.48,53.15c5.45-3.86,11.01-7.52,16.72-11l161.1,160.55Z",
+  "m545.52,445.06c-3.44,5.72-7.08,11.32-10.88,16.76l-80.55-80.23c4.91-4.34,9.45-9.07,13.54-14.16l77.89,77.64Z",
+  "m301.99,384.49l-159.9,160.47c-5.72-3.44-11.29-7.1-16.76-10.94l162.61-163.19c4.3,4.91,9.01,9.48,14.05,13.66",
+  "m544.98,140.61l-78.12,78.4c-4.14-5.02-8.73-9.71-13.68-14l80.83-81.09c3.85,5.42,7.51,10.98,10.97,16.69",
+  "m41.55,142.66l231.27,95.83c-3.07,5.72-5.66,11.72-7.75,17.97L31.96,159.89c2.99-5.86,6.17-11.6,9.58-17.23",
+  "m578.85,365.25c-1.6,6.39-3.43,12.7-5.48,18.95l-92.01-38.11c2.93-5.8,5.35-11.89,7.26-18.19l90.23,37.36Z",
+  "m342.97,406.15l-74.51,179.88c-6.81-.55-13.54-1.36-20.19-2.42l76.46-184.55c5.83,2.87,11.91,5.27,18.25,7.09",
+  "m482.91,68.31l-50.64,122.2c-5.69-3.07-11.66-5.72-17.88-7.86l52.53-126.86c5.49,3.98,10.81,8.15,15.99,12.52",
+  "m272.33,347.98l-230.98,95.66c-3.38-5.62-6.55-11.38-9.5-17.23l232.9-96.45c2.02,6.27,4.57,12.29,7.58,18.02",
+  "m578.77,221.06l-90.43,37.48c-1.96-6.3-4.46-12.35-7.41-18.14l92.38-38.25c2.05,6.22,3.87,12.52,5.46,18.9",
+  "m483,518.2c-5.19,4.36-10.5,8.56-15.98,12.55l-52.27-126.17c6.22-2.16,12.2-4.83,17.91-7.95l50.34,121.57Z",
+  "m343.39,181.08c-6.36,1.82-12.46,4.21-18.31,7.05L248.42,2.91c6.64-1.03,13.37-1.83,20.18-2.38l74.79,180.55Z",
+  "m366.51,176.77c-6.61.55-13.06,1.63-19.3,3.26L312.11,0c6.85.41,13.66,1.05,20.33,1.94l34.07,174.83Z",
+  "m438.98,548.87c-5.9,3.4-11.97,6.55-18.11,9.5l-28.9-148.38c6.55-.89,12.97-2.32,19.13-4.22l27.88,143.09Z",
+  "m263.44,325.66L11.46,374.71c-1.82-6.24-3.41-12.58-4.79-19.02l253.03-49.25c.72,6.59,1.97,13,3.74,19.22",
+  "m586.16,262.78l-93.12,18.15c-.72-6.59-1.97-13-3.77-19.22l94.23-18.35c1.11,6.42,1.97,12.89,2.66,19.42",
+  "m87.13,84.51l199.05,134.13c-4.18,5.01-7.95,10.36-11.25,16.02L73.5,98.92c4.34-4.98,8.91-9.79,13.63-14.41",
+  "m565.07,406.61c-2.53,6.11-5.29,12.14-8.28,18.02l-87.69-59.1c4.01-5.12,7.59-10.62,10.69-16.39l85.29,57.47Z",
+  "m12.6,207.99l251.46,51.57c-1.86,6.19-3.26,12.58-4.09,19.15L7.54,226.94c1.46-6.42,3.14-12.7,5.06-18.95",
+  "m585.96,325.52c-.69,6.56-1.62,13.04-2.77,19.43l-93.92-19.26c1.77-6.19,3.03-12.62,3.75-19.2l92.94,19.03Z",
+  "m365.14,410.5l-35.76,174.5h-.03c-6.73.83-13.48,1.44-20.32,1.76l36.83-179.76c6.22,1.69,12.67,2.86,19.29,3.5",
+  "m441.27,39.04l-29.26,142.85c-6.14-1.97-12.53-3.45-19.09-4.38l30.36-148.11c6.11,2.98,12.14,6.2,18,9.64",
+  "m273.89,350.86c3.2,5.73,6.86,11.15,10.97,16.24l-200.47,132.25c-4.67-4.69-9.15-9.57-13.42-14.57l202.92-133.92Z",
+  "m565.8,181.73l-85.93,56.67c-3.09-5.79-6.63-11.27-10.63-16.41l88.39-58.31c2.95,5.93,5.67,11.92,8.17,18.05",
+  "m517.12,484.36c-4.38,5.12-8.95,10.08-13.66,14.89l-68.52-103.89c5.67-3.26,11.04-7,16.07-11.14l66.11,100.14Z",
+  "m322.48,189.43c-5.85,3.04-11.38,6.52-16.58,10.4L186.93,19.53c6.24-2.47,12.6-4.72,19.05-6.73l116.51,176.63Z",
+  "m320.93,397.12l-118.31,175.55c-6.42-2.08-12.76-4.39-18.96-6.92l120.85-179.32c5.15,4,10.62,7.59,16.42,10.69",
+  "m518.54,103.9l-67.14,99.58c-5.01-4.18-10.36-7.93-16.05-11.22l69.65-103.32c4.73,4.83,9.23,9.82,13.54,14.96",
+] as const;
+
+// ----- Iris shader overlay -----
+function makeIrisOverlayMaterial() {
+  const uniforms = {
+    uAperture: { value: 1.0 },    // 1 = open, 0 = closed
+    uBlades: { value: 10.0 },     // blade count
+    uRotation: { value: 0.0 },    // global rotation
+    uTwist: { value: 0.65 },      // how much “blade swirl” appears as it closes
+    uFeather: { value: 0.02 },    // edge softness
+    uOpacity: { value: 1.0 },     // overlay opacity
+    uRadiusOpen: { value: 1.25 }, // max opening (in NDC-ish space)
+    uRadiusClosed: { value: 0.03 } // min opening
+  };
+
+  const vertexShader = /* glsl */ `
+    varying vec2 vUv;
+    void main() {
+      vUv = uv;
+      gl_Position = vec4(position.xy, 0.0, 1.0);
+    }
+  `;
+
+  const fragmentShader = /* glsl */ `
+    precision highp float;
+    varying vec2 vUv;
+
+    uniform float uAperture;
+    uniform float uBlades;
+    uniform float uRotation;
+    uniform float uTwist;
+    uniform float uFeather;
+    uniform float uOpacity;
+    uniform float uRadiusOpen;
+    uniform float uRadiusClosed;
+
+    const float PI = 3.141592653589793;
+
+    float safeAtan(float y, float x) {
+      float a = atan(y, x);
+      return (a < 0.0) ? (a + 2.0 * PI) : a;
+    }
+
+    void main() {
+      // map uv to centered coordinates (-1..1)
+      vec2 p = vUv * 2.0 - 1.0;
+
+      // polar
+      float r = length(p);
+      float theta = safeAtan(p.y, p.x);
+
+      // blade math
+      float blades = max(3.0, uBlades);
+      float w = (2.0 * PI) / blades;
+
+      // add “twist” as it closes to feel like overlapping blades
+      float twist = (1.0 - uAperture) * uTwist;
+      float t = theta + uRotation + twist;
+
+      // fold angle into one blade sector around 0
+      float a = mod(t, w) - 0.5 * w;
+
+      // aperture radius interpolates open->closed
+      float baseR = mix(uRadiusClosed, uRadiusOpen, uAperture);
+
+      // regular N-gon boundary: r <= baseR / cos(a)
+      // cos(a) can get small; clamp to avoid blowups
+      float c = max(0.15, cos(a));
+      float limitR = baseR / c;
+
+      // openMask = 1 inside aperture, 0 outside
+      float openMask = 1.0 - smoothstep(limitR, limitR + uFeather, r);
+
+      // overlay alpha is inverse of open area (black shutter)
+      float alpha = (1.0 - openMask) * uOpacity;
+
+      gl_FragColor = vec4(0.0, 0.0, 0.0, alpha);
+    }
+  `;
+
+  return new THREE.ShaderMaterial({
+    uniforms,
+    vertexShader,
+    fragmentShader,
+    transparent: true,
+    depthTest: false,
+    depthWrite: false
+  });
+}
+
+// ----- Build SVG string from your path array -----
+function buildSvgString(paths: readonly string[]) {
+  const body = paths
+    .map((d) => `<path d="${d}" fill="#ffffff" />`)
+    .join("");
+  return `
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 588 588">
+      ${body}
+    </svg>
+  `;
+}
+
+// ----- Create a centered logo group from the SVG -----
+function makeLogoGroupFromPaths(paths: readonly string[]) {
+  const svgText = buildSvgString(paths);
+  const loader = new SVGLoader();
+  const data = loader.parse(svgText);
+
+  const group = new THREE.Group();
+  const material = new THREE.MeshBasicMaterial({
+    color: 0xffffff,
+    side: THREE.DoubleSide,
+    depthTest: true
+  });
+
+  for (const path of data.paths) {
+    // If your SVG paths are fillable, this yields meshes.
+    // If a path is not closed, it may produce 0 shapes; that's ok.
+    const shapes = SVGLoader.createShapes(path);
+    for (const shape of shapes) {
+      const geom = new THREE.ShapeGeometry(shape);
+      const mesh = new THREE.Mesh(geom, material);
+      group.add(mesh);
+    }
+  }
+
+  // SVG Y axis is flipped vs three.js; flip to match expected orientation
+  group.scale.y *= -1;
+
+  // CENTER FIX: center the whole group by its bounds (handles “offset center”)
+  const box = new THREE.Box3().setFromObject(group);
+  const center = new THREE.Vector3();
+  box.getCenter(center);
+  group.position.sub(center);
+
+  return group;
+}
+
+// ----- Main entry -----
+export function mountIrisShutterDemo(opts: { container: HTMLElement }) {
+  const { container } = opts;
+
+  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(2, window.devicePixelRatio));
+  container.appendChild(renderer.domElement);
+
+  const scene = new THREE.Scene();
+
+  // Ortho camera with world units that match the shader quad approach
+  const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, -10, 10);
+  camera.position.z = 5;
+
+  // Logo group (scaled to fit nicely in view)
+  const logo = makeLogoGroupFromPaths(EMBLEM_PATHS);
+  scene.add(logo);
+
+  // scale logo into the ortho view
+  // compute its bounds and scale so the max dimension fits ~1.6 units
+  {
+    const box = new THREE.Box3().setFromObject(logo);
+    const size = new THREE.Vector3();
+    box.getSize(size);
+    const maxDim = Math.max(size.x, size.y);
+    const target = 1.6; // tweak to taste
+    const s = maxDim > 0 ? (target / maxDim) : 1;
+    logo.scale.multiplyScalar(s);
+  }
+
+  // Iris overlay plane (full screen quad in clip space)
+  const irisMat = makeIrisOverlayMaterial();
+  const irisPlane = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), irisMat);
+  irisPlane.position.z = 2;
+  scene.add(irisPlane);
+
+  // Resize
+  function resize() {
+    const w = container.clientWidth;
+    const h = container.clientHeight;
+    renderer.setSize(w, h, false);
+  }
+  window.addEventListener("resize", resize);
+  resize();
+
+  // Click animation state
+  let shutterT = 1.0;
+  let shutterActive = false;
+  let shutterDir: "closing" | "opening" = "closing";
+
+  function triggerShutter() {
+    // start from open
+    shutterT = 1.0;
+    shutterActive = true;
+    shutterDir = "closing";
+  }
+
+  // Example trigger
+  container.addEventListener("pointerdown", () => triggerShutter());
+
+  const clock = new THREE.Clock();
+
+  function tick() {
+    const dt = Math.min(0.05, clock.getDelta());
+    const t = clock.elapsedTime;
+
+    // subtle rotation makes blades feel mechanical
+    (irisMat.uniforms.uRotation.value as number) = t * 0.6;
+
+    // shutter “click”: fast close, slightly slower reopen
+    if (shutterActive) {
+      if (shutterDir === "closing") {
+        shutterT -= dt * 6.5; // close speed
+        if (shutterT <= 0.0) {
+          shutterT = 0.0;
+          shutterDir = "opening";
+        }
+      } else {
+        shutterT += dt * 4.0; // open speed
+        if (shutterT >= 1.0) {
+          shutterT = 1.0;
+          shutterActive = false;
+        }
+      }
+
+      // ease curve so it “snaps”
+      const eased = shutterT * shutterT * (3.0 - 2.0 * shutterT);
+      (irisMat.uniforms.uAperture.value as number) = eased;
+    } else {
+      (irisMat.uniforms.uAperture.value as number) = 1.0;
+    }
+
+    renderer.render(scene, camera);
+    requestAnimationFrame(tick);
+  }
+
+  tick();
+
+  return {
+    renderer,
+    scene,
+    camera,
+    logo,
+    triggerShutter,
+    setBladeCount(n: number) {
+      irisMat.uniforms.uBlades.value = Math.max(3, Math.floor(n));
+    },
+    setFeather(f: number) {
+      irisMat.uniforms.uFeather.value = Math.max(0.0, f);
+    }
+  };
+}
+
+How to use (Vite quick wiring)
+
+// main.ts
+import { mountIrisShutterDemo } from "./iris-shutter-demo";
+
+const el = document.getElementById("app")!;
+mountIrisShutterDemo({ container: el });
+
+
+⸻
+
+Why your “center is offset” (and why this fixes it)
+
+SVG path coordinates live in the SVG’s coordinate space, and your combined emblem’s visual center is not guaranteed to be the viewBox midpoint. If you rotate around (0,0) without centering the geometry/group, it will orbit instead of spin in place. Centering by bounding box (or geometry.center() for a single geometry) is the standard correction.  ￼
+
+⸻

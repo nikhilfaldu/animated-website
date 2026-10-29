@@ -1,0 +1,1146 @@
+
+Here’s a summary of the proposed build:
+
+Aperture Index Animation:
+	•	32 emblem rays swing inward like camera shutter blades
+	•	Spring physics with visible overshoot, then settle
+	•	Activates at 70% Process scroll, completes at 95%
+	•	Seamless crossfade handoff to OrbitSystem at completion
+	•	Subtle center disc alignment cue (per your preference)
+
+Key technical approach:
+	•	Instanced mesh with vertex shader for GPU-efficient animation
+	•	Orthographic camera to match SVG appearance exactly
+	•	Conditional canvas mounting to avoid performance overhead outside animation zone
+	•	Bidirectional scroll support (animation plays forward and backward)
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+Ready to code?
+
+Here is Claude’s plan:
+╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌
+Aperture Index WebGL Emblem Animation
+
+Summary
+
+Reintroduce the emblem at the bottom of the Process section (70-100% scroll range) using a WebGL “Aperture Index” animation. The 32 emblem rays swing inward like
+camera shutter blades with spring physics, then seamlessly hand off to the existing OrbitSystem/ScrollController.
+
+⸻
+
+Architecture Overview
+
+Process Section (320vh)
+├── EmblemField (z-10) - Rotating gears, fades at 70-90%
+├── ApertureCanvas (z-15) - NEW WebGL emblem, active 70-100%
+├── PanelMask (z-20) - Solid mask with cutouts
+└── ParallaxLabels (z-30) - Text overlays
+
+Handoff Flow:
+	1.	0-70%: Gears visible, main emblem hidden (opacity: 0)
+	2.	70-95%: Aperture animation plays, gears fade out
+	3.	95-100%: Crossfade WebGL → SVG emblem
+	4.	100%+: OrbitSystem takes over for Contact section
+
+⸻
+
+New Files
+
+src/components/emblem/ApertureEmblem/
+├── index.ts                    # Export barrel
+├── ApertureCanvas.tsx          # R3F Canvas wrapper with visibility control
+├── ApertureScene.tsx           # Orthographic camera + instanced mesh
+├── ApertureRayInstances.tsx    # 32 instanced rays with shader animation
+├── CenterDisc.tsx              # “Click” indicator at completion
+├── useApertureAnimation.ts     # Scroll→animation math hook
+├── apertureShader.vert         # Hinge rotation vertex shader
+├── apertureShader.frag         # Simple color output
+├── apertureGeometry.ts         # SVG path → BufferGeometry conversion
+└── apertureConstants.ts        # Timing, spring config, dimensions
+
+⸻
+
+Critical Files to Modify
+
+File	Change
+src/sections/Process/Process.tsx	Add ApertureCanvas layer at z-15
+src/components/ScrollController.tsx	Coordinate opacity handoff at 95%
+src/sections/Process/processData.ts	Add APERTURE_* constants
+
+
+⸻
+
+Animation Mechanics
+
+Shutter Blade Physics
+
+Each of the 32 rays pivots around its inner anchor (near emblem center):
+
+Initial (progress=0):
+	•	Rays rotated 90° outward from final position
+	•	Positioned far offscreen (radius ~800px)
+
+Animation (0→1):
+	•	Spring interpolation: stiffness=180, damping=22
+	•	Creates visible overshoot (~8°) then settle
+	•	Quadrant-distributed stagger (12ms per ray)
+
+Final (progress=1):
+	•	All rays at origin, 0° rotation
+	•	Matches OrbitSystem “idle” state exactly
+
+Vertex Shader Hinge Rotation
+
+// Translate to hinge point, rotate, translate back
+vec3 pos = position;
+pos.xy -= hingeAnchor;
+pos.xy = rotate2D(pos.xy, swingAngle);
+pos.xy += hingeAnchor;
+pos.xy += radialOffset * (1.0 - progress); // Converge to center
+
+Scroll Mapping
+
+const APERTURE_START = 0.70;  // Animation begins
+const APERTURE_END = 0.95;    // Animation complete
+const CROSSFADE = 0.03;       // 3% scroll for handoff blend
+
+// Maps section scroll → animation progress
+function mapProgress(sectionScroll: number): number {
+return clamp((sectionScroll - 0.70) / 0.25, 0, 1);
+}
+
+⸻
+
+Handoff Mechanism
+
+At 95% Process Scroll
+	1.	WebGL emblem reaches final state (matches SVG position/scale)
+	2.	Crossfade begins: WebGL opacity 1→0, SVG opacity 0→0.08
+	3.	ScrollController resumes control at 0.92 global scroll
+
+State Matching
+
+WebGL final state must match OrbitSystem expected state:
+	•	Position: viewport center (x: 50, y: 50)
+	•	Scale: 1.2 (from SCROLL_BREAKPOINTS)
+	•	Rotation: 0 (OrbitSystem adds -15° after takeover)
+
+⸻
+
+Implementation Phases
+
+Phase 1: Geometry Setup
+	1.	Create apertureGeometry.ts - Parse EMBLEM_PATHS to Three.js shapes
+	2.	Create apertureConstants.ts - Animation timing/spring config
+	3.	Create ApertureScene.tsx - Orthographic camera matching 588×588 viewBox
+
+Phase 2: Static Rendering
+	4.	Create ApertureRayInstances.tsx - Instanced mesh for 32 rays
+	5.	Create ApertureCanvas.tsx - Canvas wrapper with conditional mount
+	6.	Add to Process.tsx at z-15, verify visual match with SVG
+
+Phase 3: Animation
+	7.	Create apertureShader.vert/frag - Hinge rotation shader
+	8.	Create useApertureAnimation.ts - Spring math + scroll binding
+	9.	Wire scroll progress → shader uniforms
+	10.	Test bidirectional scroll (forward/backward)
+
+Phase 4: Handoff
+	11.	Create CenterDisc.tsx - Subtle alignment cue (barely visible, lets rays be the star)
+	12.	Modify ScrollController - Add opacity coordination at 95%
+	13.	Implement crossfade between WebGL and SVG
+	14.	Add reduced motion fallback
+
+Phase 5: Polish
+	15.	Tune spring parameters for satisfying overshoot
+	16.	Performance profiling (target: 60fps on mobile)
+	17.	Full scroll journey test (Hero→Contact)
+
+⸻
+
+Performance Notes
+	•	Instanced rendering: Single draw call for 32 rays
+	•	Conditional mount: Canvas only exists during 65-100% scroll
+	•	GPU animation: All transforms in vertex shader
+	•	Orthographic camera: No perspective math overhead
+
+⸻
+
+Technical Decisions
+
+Decision	Choice	Rationale
+Camera	Orthographic	Matches 2D SVG appearance
+Rendering	Instanced mesh	1 draw call vs 32
+Animation	CPU spring → GPU transform	Spring math complex, transforms cheap
+Mounting	Conditional	Avoid Canvas startup cost outside animation zone
+
+Aperture Index WebGL Emblem Return + Baton Handoff Spec (Claude Source of Truth)
+
+READ THIS FIRST
+	•	Do not delete or “simplify” any shader code or timing constants in this file. Treat shader blocks + mapping logic as canonical.
+	•	This plan intentionally distinguishes TWO timelines (local Process scroll vs global page scroll). The handoff only works if both are implemented.
+	•	Preferred rendering implementation is the shader sliced plane (pixel faithful to the SVG, single draw call). The earlier “instanced mesh” description is retained as a conceptual model only, but we are not implementing instanced meshes in this pass.
+
+────────────────────────────────────────────────────────────────────────────────────────────
+GOAL
+
+Return the emblem inside the Process section using an Aperture Index animation (0.70–0.95 local Process scroll), then perform a real baton handoff:
+	•	WebGL fades OUT at the tail of Process (0.95–0.98 local, 3% window)
+	•	OrbitSystem emblem fades IN around the Process → Reveal boundary (HANDOFF_IN_START–HANDOFF_IN_END global)
+So the user perceives one continuous emblem that continues into Reveal and Work.
+
+────────────────────────────────────────────────────────────────────────────────────────────
+NON NEGOTIABLES
+
+Aperture Index motion
+	•	32 slices behave like shutter blades, springy overshoot, then settle.
+	•	Main action: local Process 0.70 → 0.95
+	•	Tail window reserved for fade out: local Process 0.95 → 0.98 (3% crossfade window, matches CROSSFADE = 0.03)
+	•	Bidirectional scroll support (forward/back) must work.
+
+Bidirectional scroll acceptance tests (explicit)
+	•	Scrolling forward: emblem assembles smoothly; overshoot visible; no snapping at APERTURE_START or APERTURE_END.
+	•	Scrolling backward: emblem cleanly “un-indexes” with the same smoothness (no popping, no discontinuity) even if user reverses direction mid-animation.
+	•	Reversal edge cases to test:
+	1.	Reverse at local 0.73
+	2.	Reverse at local 0.89
+	3.	Reverse at local 0.949
+	4.	Reverse inside the fade window 0.955–0.975
+	•	Crossfade must remain stable in both directions: if the user reverses during fade, opacity must interpolate back without visible jumps.
+
+Performance
+	•	Canvas stays mounted. NO mount/unmount mid scroll (avoid shader compile hitch in the “return” moment).
+	•	R3F Canvas uses frameloop=“demand” and we invalidate only while active/visible.
+	•	Orthographic camera (2D, SVG like).
+	•	Single shader plane rendering driven by uniforms.
+	•	Performance gating: target 60fps on mobile. If it drops, fix invalidation frequency and render scope first (not the animation).
+
+State matching (pixel perfect)
+	•	Final WebGL state must visually match the OrbitSystem emblem at the moment of handoff (position/scale/rotation in the user’s perception).
+	•	If you see any “jump” on crossfade, fix transforms, not the fade.
+	•	Do not “eyeball” scaling. Use measurement: base WebGL plane size and placement on the SVG emblem’s actual rendered bounding box.
+
+Structural constraint
+	•	PanelMask becomes an opaque plate after cutouts end. WebGL will be hidden unless PanelMask fades out 0.68 → 0.74 local Process.
+
+Reduced motion
+	•	If reduced motion is enabled: do not run WebGL animation. Still perform the global OrbitSystem fade in during handoff.
+
+Full journey test gate (explicit)
+	•	Run a full scroll journey test Hero → Process → Reveal → Work → Contact.
+	•	Confirm: no z-index hiding, no emblem jumping, no opacity “double emblem” moment, no stalls.
+
+────────────────────────────────────────────────────────────────────────────────────────────
+TWO TIMELINES (DO NOT MIX)
+	1.	Local Process timeline (Framer Motion scrollYProgress inside Process)
+Used for:
+
+	•	PanelMask fade (so WebGL is visible)
+	•	Gears fade
+	•	WebGL aperture progress + WebGL fade out
+Range:
+	•	0..1 within Process only
+
+	2.	Global page timeline (ScrollController)
+Used for:
+
+	•	OrbitSystem emblem position/scale/opacity across the entire page
+Range:
+	•	0..1 across full scroll
+
+The baton pass is:
+	•	WebGL opacity fades OUT (local Process)
+	•	OrbitSystem opacity fades IN (global ScrollController)
+
+────────────────────────────────────────────────────────────────────────────────────────────
+FINAL TIMING CONSTANTS (LOCAL PROCESS)
+
+Add/confirm these exist in:
+src/sections/Process/processData.ts
+
+// === APERTURE RETURN TIMING (local Process scroll 0..1) ===
+export const GEARS_FADE_START = 0.65;
+export const GEARS_FADE_END = 0.88;
+
+export const MASK_FADE_START = 0.68;
+export const MASK_FADE_END = 0.74;
+
+export const APERTURE_START = 0.70;     // WebGL aperture begins
+export const APERTURE_END = 0.95;       // main “index lock” completes
+
+// Baton pass tail (local). WebGL fades out here.
+// IMPORTANT: end is 0.98 to match CROSSFADE = 0.03 (3%)
+export const WEBGL_FADE_OUT_START = 0.95;
+export const WEBGL_FADE_OUT_END = 0.98;
+
+NOTE
+	•	APERTURE_END stays 0.95 for the lock moment.
+	•	0.95–0.98 is the reserved crossfade window (3%).
+	•	0.98–1.00 is “quiet tail” (WebGL already invisible; no work needed).
+
+────────────────────────────────────────────────────────────────────────────────────────────
+GLOBAL HANDOFF WINDOW (SCROLLCONTROLLER)
+
+In:
+src/components/ScrollController.tsx
+
+Define:
+
+const HANDOFF_IN_START = 0.70;
+const HANDOFF_IN_END = 0.74;
+
+These are GLOBAL scroll positions (0..1). They must correspond roughly to “Reveal begins and provides a short landing.”
+
+Then update:
+	•	SCROLL_BREAKPOINTS to include HANDOFF_IN_START and HANDOFF_IN_END (in that order)
+	•	ALL emblem output arrays to match breakpoint count
+	•	Emblem opacity MUST ramp up during HANDOFF_IN_START..HANDOFF_IN_END instead of staying 0 until the end.
+
+Example pattern (adjust numbers to match your design but keep structure and lengths consistent):
+
+const SCROLL_BREAKPOINTS = [
+0,
+0.12,
+0.35,
+0.40,
+0.55,
+HANDOFF_IN_START,
+HANDOFF_IN_END,
+0.85,
+0.92,
+0.95,
+1
+];
+
+// Bring emblem back to center by HANDOFF_IN_END and keep it present through Work
+const emblemXRaw = [
+50,
+15,
+-150,
+-150,
+-150,
+-150,
+50,
+50,
+50,
+50,
+50,
+];
+
+const emblemYRaw = [
+50,
+10,
+30,
+30,
+30,
+30,
+50,
+50,
+50,
+50,
+50,
+];
+
+const emblemScaleRaw = [
+1,
+5,
+5,
+5,
+5,
+5,
+1.2,
+1.2,
+1.2,
+1.0,
+0.3,
+];
+
+// THIS is the baton pass: fade in around Reveal start
+const emblemOpacityRaw = [
+0.08,
+0.11,
+0,
+0,
+0,
+0,
+0.10,
+0.14,
+0.18,
+0.25,
+0,
+];
+
+IMPORTANT
+	•	Every output array length MUST equal SCROLL_BREAKPOINTS length.
+	•	Replace any old “opacity stays 0 until ~0.95” placeholder with this handoff ramp.
+
+────────────────────────────────────────────────────────────────────────────────────────────
+CRITICAL LAYERING: ORBITSYSTEM EMBLEM MUST BE ABOVE SECTION BACKGROUNDS
+
+If the OrbitSystem emblem container is z-0, it will be hidden behind Process/Reveal/Work backgrounds and the handoff will be invisible.
+
+In App.tsx (or wherever the fixed emblem container is), raise it:
+
+Change:
+
+<div className="pointer-events-none fixed inset-0 z-0">
+  <Emblem size={emblemSize} />
+</div>
+
+
+To:
+
+<div className="pointer-events-none fixed inset-0 z-[60]">
+  <Emblem size={emblemSize} />
+</div>
+
+
+Then ensure any text that must sit above uses z-70+ (or existing higher values).
+
+────────────────────────────────────────────────────────────────────────────────────────────
+PROCESS LAYERING (LOCAL)
+
+In:
+src/sections/Process/Process.tsx
+
+Insert ApertureCanvas between EmblemField and PanelMask:
+
+import { ApertureCanvas } from ‘@/components/emblem/ApertureEmblem/ApertureCanvas’;
+
+Layer order must be:
+	•	EmblemField z-10
+	•	ApertureCanvas z-15
+	•	PanelMask z-20 (but fades out between MASK_FADE_START..MASK_FADE_END)
+	•	ParallaxLabels z-30
+
+Add:
+
+{/* Layer 1: Pinned emblem field (z-10) */}
+
+
+{/* Layer 1.5: Aperture return (z-15) */}
+
+<div className="sticky top-0 h-screen w-full pointer-events-none" style={{ zIndex: 15 }}>
+  <ApertureCanvas scrollProgress={scrollYProgress} />
+</div>
+
+
+{/* Layer 2: Scrolling mask with cutouts (z-20) */}
+
+
+────────────────────────────────────────────────────────────────────────────────────────────
+PANELMASK MUST FADE OUT (OR WEBGL WILL BE HIDDEN)
+
+In:
+src/sections/Process/PanelMask.tsx
+	1.	Imports: add motion/useTransform + constants
+
+import { motion, type MotionValue, useMotionValueEvent, useTransform } from ‘framer-motion’;
+import { MASK_FADE_START, MASK_FADE_END } from ‘./processData’;
+	2.	Add ref to avoid “stale visible” compare in useMotionValueEvent:
+
+const visibleRef = useRef<CutoutConfig[]>(visible);
+useEffect(() => { visibleRef.current = visible; }, [visible]);
+	3.	Add opacity MotionValue:
+
+const maskOpacity = useTransform(scrollProgress, [MASK_FADE_START, MASK_FADE_END], [1, 0]);
+	4.	Wrap the root container with motion.div and apply opacity:
+
+return (
+<motion.div
+className=“absolute inset-x-0 top-0 pointer-events-none”
+style={{ height: ${SECTION_HEIGHT_VH}vh, zIndex: 20, opacity: maskOpacity }}
+aria-hidden=“true”
+
+
+
+...existing mask SVG/logic...
+
+</motion.div>
+);
+	5.	Replace the array compare line to use the ref:
+
+const prev = visibleRef.current;
+const same = next.length === prev.length && next.every((c, i) => c.id === prev[i]?.id);
+
+────────────────────────────────────────────────────────────────────────────────────────────
+GEARS FADE DOWN (RECOMMENDED)
+
+In:
+src/sections/Process/EmblemField.tsx
+
+Use:
+import { ROTATION_PER_SCROLL, GEARS_FADE_START, GEARS_FADE_END } from ‘./processData’;
+
+Replace opacity mapping with:
+
+const gearOpacity = useTransform(
+scrollProgress,
+[0, GEARS_FADE_START, GEARS_FADE_END],
+[0.3, 0.3, 0]
+);
+
+Wrap the pinned field in motion.div with style={{ opacity: gearOpacity }}.
+
+────────────────────────────────────────────────────────────────────────────────────────────
+DEPENDENCIES
+
+npm i three @react-three/fiber
+
+────────────────────────────────────────────────────────────────────────────────────────────
+PIXEL PERFECT STATE MATCHING (MEASURE SVG BOUNDING BOX, DO NOT EYEBALL)
+
+Goal: Ensure that at the handoff moment, WebGL emblem occupies the exact same on-screen size/position as the OrbitSystem SVG emblem.
+
+Implementation approach:
+	•	Measure the OrbitSystem emblem’s rendered DOM bounding box once (and on resize).
+	•	Convert that pixel rect into R3F viewport units.
+	•	Size the WebGL plane to that rect (instead of full viewport).
+	•	Keep the plane centered to the emblem center.
+
+Requirement:
+	•	Add a stable selector to the OrbitSystem emblem root (recommended):
+In the Emblem component root element: data-orbit-emblem=“true”
+Example: <svg data-orbit-emblem=“true” …>
+
+New file:
+src/components/emblem/ApertureEmblem/useOrbitEmblemRect.ts
+
+import { useEffect, useState } from ‘react’;
+
+export type OrbitRect = { x: number; y: number; width: number; height: number } | null;
+
+export function useOrbitEmblemRect() {
+const [rect, setRect] = useState(null);
+
+useEffect(() => {
+const measure = () => {
+const el = document.querySelector(’[data-orbit-emblem=“true”]’) as HTMLElement | null;
+if (!el) return;
+const r = el.getBoundingClientRect();
+setRect({ x: r.left, y: r.top, width: r.width, height: r.height });
+};
+
+measure();
+window.addEventListener('resize', measure);
+return () => window.removeEventListener('resize', measure);
+
+}, []);
+
+return rect;
+}
+
+Then in AperturePlane, convert pixel rect to viewport units and apply plane sizing:
+	•	viewport.width/height corresponds to window.innerWidth/innerHeight mapping in orthographic R3F.
+	•	Convert like:
+planeW = (rect.width / window.innerWidth) * viewport.width
+planeH = (rect.height / window.innerHeight) * viewport.height
+
+We will do that below.
+
+────────────────────────────────────────────────────────────────────────────────────────────
+WEBGL APERTURE IMPLEMENTATION (PREFERRED: SHADER SLICED PLANE)
+
+Create folder:
+src/components/emblem/ApertureEmblem/
+
+Files:
+	•	index.ts
+	•	ApertureCanvas.tsx
+	•	AperturePlane.tsx
+	•	CenterDisc.tsx
+	•	emblemTexture.ts
+	•	apertureShader.ts
+	•	useOrbitEmblemRect.ts
+	•	useApertureUniforms.ts
+
+This approach:
+	•	Renders your EMBLEM_PATHS into a texture (CanvasTexture)
+	•	Fragment shader re-samples the texture through a 32-slice polar transform
+	•	Each slice has a deterministic delay (quadrant distributed + jitter)
+	•	Progress is spring driven
+	•	Opacity includes the required fade out window 0.95..0.98 local
+	•	CenterDisc cue exists as a subtle overlay (so we preserve the “click” preference even though we’re not using instanced rays)
+
+────────────────────────────────────────────────────────────────────────────────────────────
+src/components/emblem/ApertureEmblem/index.ts
+
+export { ApertureCanvas } from ‘./ApertureCanvas’;
+
+────────────────────────────────────────────────────────────────────────────────────────────
+src/components/emblem/ApertureEmblem/ApertureCanvas.tsx
+
+import { Canvas } from ‘@react-three/fiber’;
+import { useReducedMotion } from ‘framer-motion’;
+import { AperturePlane } from ‘./AperturePlane’;
+import { CenterDisc } from ‘./CenterDisc’;
+
+type Props = {
+scrollProgress: any; // MotionValue
+};
+
+export function ApertureCanvas({ scrollProgress }: Props) {
+const prefersReducedMotion = useReducedMotion();
+if (prefersReducedMotion) return null;
+
+return (
+
+<Canvas
+dpr={[1, 2]}
+gl={{ antialias: true, alpha: true, powerPreference: ‘high-performance’ }}
+orthographic
+frameloop=“demand”
+camera={{ position: [0, 0, 10], zoom: 1 }}
+>
+
+
+
+  {/* Center “click” cue (subtle, barely visible) */}
+  <CenterDisc scrollProgress={scrollProgress} />
+</div>
+
+);
+}
+
+────────────────────────────────────────────────────────────────────────────────────────────
+src/components/emblem/ApertureEmblem/CenterDisc.tsx
+(Subtle alignment cue near completion; do not compete with rays)
+
+import { motion, useTransform } from ‘framer-motion’;
+import { APERTURE_END, WEBGL_FADE_OUT_END } from ‘@/sections/Process/processData’;
+
+export function CenterDisc({ scrollProgress }: { scrollProgress: any }) {
+// Fade in just after lock, fade out with WebGL tail
+const opacity = useTransform(scrollProgress, [APERTURE_END - 0.01, APERTURE_END, WEBGL_FADE_OUT_END], [0, 0.10, 0]);
+const scale = useTransform(scrollProgress, [APERTURE_END - 0.02, APERTURE_END], [0.98, 1]);
+
+return (
+<motion.div
+className=“pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2”
+style={{ opacity, scale }}
+aria-hidden=“true”
+>
+
+
+</motion.div>
+);
+}
+
+────────────────────────────────────────────────────────────────────────────────────────────
+src/components/emblem/ApertureEmblem/emblemTexture.ts
+
+import * as THREE from ‘three’;
+import { EMBLEM_PATHS } from ‘@/assets/emblemPaths’;
+
+export async function createEmblemTexture(size = 2048): Promise<THREE.CanvasTexture> {
+const svg = <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 588 588" width="${size}" height="${size}"> <rect width="100%" height="100%" fill="transparent"/> <g fill="white"> ${EMBLEM_PATHS.map((d) =>).join('')} </g> </svg>.trim();
+
+const img = new Image();
+img.decoding = ‘async’;
+img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+
+await new Promise((resolve, reject) => {
+img.onload = () => resolve();
+img.onerror = () => reject(new Error(‘Failed to load emblem SVG into Image()’));
+});
+
+const canvas = document.createElement(‘canvas’);
+canvas.width = size;
+canvas.height = size;
+
+const ctx = canvas.getContext(‘2d’);
+if (!ctx) throw new Error(‘No 2D canvas context available’);
+
+ctx.clearRect(0, 0, size, size);
+ctx.drawImage(img, 0, 0, size, size);
+
+const tex = new THREE.CanvasTexture(canvas);
+tex.colorSpace = THREE.SRGBColorSpace;
+tex.wrapS = THREE.ClampToEdgeWrapping;
+tex.wrapT = THREE.ClampToEdgeWrapping;
+tex.minFilter = THREE.LinearMipmapLinearFilter;
+tex.magFilter = THREE.LinearFilter;
+tex.generateMipmaps = true;
+tex.needsUpdate = true;
+
+return tex;
+}
+
+────────────────────────────────────────────────────────────────────────────────────────────
+src/components/emblem/ApertureEmblem/apertureShader.ts
+
+export const vertexShader = varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); };
+
+export const fragmentShader = `
+precision highp float;
+
+uniform sampler2D uTex;
+uniform float uProgress;   // 0..1
+uniform float uOpacity;    // 0..1
+uniform float uSwingMax;   // radians (1.57 = 90deg)
+uniform float uRadialPush; // radial push at start
+uniform float uHinge;      // hinge radius in normalized coords (0..1)
+uniform float uDelays[32]; // per-slice delay
+
+varying vec2 vUv;
+
+const float TAU = 6.283185307179586;
+const float SLICES = 32.0;
+
+mat2 rot(float a) {
+float s = sin(a);
+float c = cos(a);
+return mat2(c, -s, s, c);
+}
+
+float saturate(float x) { return clamp(x, 0.0, 1.0); }
+
+void main() {
+vec2 c = (vUv - 0.5) * 2.0;
+
+float theta = atan(c.y, c.x);
+if (theta < 0.0) theta += TAU;
+
+float sliceW = TAU / SLICES;
+float slice = floor(theta / sliceW);
+float sliceCenter = (slice + 0.5) * sliceW;
+
+int idx = int(slice);
+float d = uDelays[idx];
+
+float p = saturate((uProgress - d) / max(0.0001, (1.0 - d)));
+p = smoothstep(0.0, 1.0, p);
+
+vec2 cs = rot(-sliceCenter) * c;
+
+vec2 hinge = vec2(uHinge, 0.0);
+
+float swing = (1.0 - p) * uSwingMax;
+
+cs.x += uRadialPush * (1.0 - p);
+
+vec2 rel = cs - hinge;
+rel = rot(swing) * rel;
+cs = rel + hinge;
+
+vec2 cw = rot(sliceCenter) * cs;
+
+vec2 uv2 = (cw * 0.5) + 0.5;
+
+if (uv2.x < 0.0 || uv2.x > 1.0 || uv2.y < 0.0 || uv2.y > 1.0) {
+  gl_FragColor = vec4(0.0);
+  return;
+}
+
+vec4 tex = texture2D(uTex, uv2);
+
+float a = smoothstep(0.15, 0.35, tex.a);
+
+gl_FragColor = vec4(vec3(1.0), a * uOpacity);
+
+}
+`;
+
+────────────────────────────────────────────────────────────────────────────────────────────
+src/components/emblem/ApertureEmblem/useApertureUniforms.ts
+(UPDATED: includes WEBGL_FADE_OUT window + invalidation on change)
+
+import { useEffect, useMemo, useRef } from ‘react’;
+import * as THREE from ‘three’;
+import { useMotionValueEvent, useSpring, useTransform } from ‘framer-motion’;
+import {
+APERTURE_START,
+APERTURE_END,
+WEBGL_FADE_OUT_START,
+WEBGL_FADE_OUT_END,
+} from ‘@/sections/Process/processData’;
+import { createEmblemTexture } from ‘./emblemTexture’;
+
+function clamp01(n: number) {
+return Math.max(0, Math.min(1, n));
+}
+
+export function useApertureUniforms(scrollProgress: any, invalidate: () => void) {
+const uniforms = useMemo(() => {
+const delays = new Float32Array(32);
+
+// Quadrant distributed stagger with deterministic jitter (no Math.random)
+const order: number[] = [];
+const quadrants = [
+  Array.from({ length: 8 }, (_, i) => i),
+  Array.from({ length: 8 }, (_, i) => i + 8),
+  Array.from({ length: 8 }, (_, i) => i + 16),
+  Array.from({ length: 8 }, (_, i) => i + 24),
+];
+
+const stride = 3;
+const shuffled = quadrants.map((q) => q.map((_, i) => q[(i * stride) % q.length]));
+
+// Quadrant order: NE → SW → NW → SE
+for (let i = 0; i < 8; i++) {
+  order.push(shuffled[0][i], shuffled[2][i], shuffled[1][i], shuffled[3][i]);
+}
+
+order.forEach((rayIdx, i) => {
+  const base = i * 0.010;              // 10ms base spacing
+  const jitter = (rayIdx % 7) * 0.002; // 0..12ms deterministic jitter
+  delays[rayIdx] = Math.min(0.22, base + jitter);
+});
+
+return {
+  uTex: { value: null as unknown as THREE.Texture },
+  uProgress: { value: 0 },
+  uOpacity: { value: 0 },
+  uSwingMax: { value: Math.PI / 2 },
+  uRadialPush: { value: 0.55 },
+  uHinge: { value: 0.08 },
+  uDelays: { value: Array.from(delays) },
+};
+
+}, []);
+
+const raw = useTransform(scrollProgress, (v: number) => {
+const p = (v - APERTURE_START) / (APERTURE_END - APERTURE_START);
+return clamp01(p);
+});
+
+const spring = useSpring(raw, { stiffness: 180, damping: 22, mass: 1 });
+
+const opacityMv = useTransform(scrollProgress, (v: number) => {
+if (v < APERTURE_START - 0.02) return 0;
+if (v < APERTURE_START) return (v - (APERTURE_START - 0.02)) / 0.02;
+if (v < WEBGL_FADE_OUT_START) return 1;
+if (v < WEBGL_FADE_OUT_END) {
+return 1 - (v - WEBGL_FADE_OUT_START) / (WEBGL_FADE_OUT_END - WEBGL_FADE_OUT_START);
+}
+return 0;
+});
+
+const textureLoadedRef = useRef(false);
+useEffect(() => {
+if (textureLoadedRef.current) return;
+textureLoadedRef.current = true;
+
+(async () => {
+  const tex = await createEmblemTexture(2048);
+  uniforms.uTex.value = tex;
+  invalidate();
+})().catch((err) => console.error(err));
+
+}, [uniforms, invalidate]);
+
+useMotionValueEvent(spring, ‘change’, (v) => {
+uniforms.uProgress.value = v;
+invalidate();
+});
+
+useMotionValueEvent(opacityMv, ‘change’, (v) => {
+uniforms.uOpacity.value = v;
+invalidate();
+});
+
+return uniforms;
+}
+
+────────────────────────────────────────────────────────────────────────────────────────────
+src/components/emblem/ApertureEmblem/AperturePlane.tsx
+(UPDATED: plane sized to OrbitSystem emblem rect for pixel perfect handoff)
+
+import * as THREE from ‘three’;
+import { useMemo } from ‘react’;
+import { useThree } from ‘@react-three/fiber’;
+import { fragmentShader, vertexShader } from ‘./apertureShader’;
+import { useApertureUniforms } from ‘./useApertureUniforms’;
+import { useOrbitEmblemRect } from ‘./useOrbitEmblemRect’;
+
+type Props = {
+scrollProgress: any;
+};
+
+export function AperturePlane({ scrollProgress }: Props) {
+const { invalidate, viewport } = useThree();
+const uniforms = useApertureUniforms(scrollProgress, invalidate);
+const orbitRect = useOrbitEmblemRect();
+
+const material = useMemo(() => {
+return new THREE.ShaderMaterial({
+transparent: true,
+depthWrite: false,
+depthTest: false,
+uniforms,
+vertexShader,
+fragmentShader,
+});
+}, [uniforms]);
+
+// Default: use emblem-sized plane if rect exists, otherwise fallback to viewport.
+const planeArgs = useMemo<[number, number]>(() => {
+if (!orbitRect) return [viewport.width, viewport.height];
+
+const w = (orbitRect.width / window.innerWidth) * viewport.width;
+const h = (orbitRect.height / window.innerHeight) * viewport.height;
+
+// Guard against zeros
+const ww = Math.max(0.001, w);
+const hh = Math.max(0.001, h);
+
+return [ww, hh];
+
+}, [orbitRect, viewport.width, viewport.height]);
+
+return (
+<mesh material={material} position={[0, 0, 0]}>
+
+
+);
+}
+
+NOTE
+	•	This assumes the OrbitSystem emblem is centered. If OrbitSystem emblem is not centered, we will extend this to compute position offset (still derived from orbitRect).
+	•	If a “jump” persists, fix the OrbitSystem transforms first: by HANDOFF_IN_END, OrbitSystem emblem must be centered and at the same scale as the measured rect.
+
+────────────────────────────────────────────────────────────────────────────────────────────
+REVEAL + WORK (BRIDGE + CONTINUITY)
+
+Reveal
+	•	Reveal must not be dead space.
+	•	Reveal is the landing where OrbitSystem is now visible again (global opacity ramp is happening around this boundary).
+
+Replace:
+src/sections/Reveal.tsx
+
+(imported code unchanged from prior spec)
+
+Work
+	•	Remove overlap hacks used to fake staging space.
+
+In Work.tsx change:
+className=“section min-h-[140vh] pt-0 -mt-[55vh] z-40 relative”
+to:
+className=“section min-h-[140vh] pt-24 z-40 relative”
+
+Optional continuity flourish (recommended, lightweight):
+Add sliding viewfinder frame.
+
+(imported code unchanged from prior spec)
+
+────────────────────────────────────────────────────────────────────────────────────────────
+PERFORMANCE + PROFILING GATE (EXPLICIT)
+
+Before calling this “done,” verify:
+	•	Mobile device (real iPhone/Android or Chrome mobile throttle) holds near 60fps during:
+	•	Mask fade window (0.68–0.74)
+	•	Main aperture motion (0.70–0.95)
+	•	Fade window (0.95–0.98)
+	•	No spikes from reflow: the OrbitSystem rect measurement must not run per frame (measure once + resize only).
+	•	R3F frameloop stays “demand” and we only invalidate on MotionValue changes (no setInterval heartbeat, no useFrame loop).
+
+────────────────────────────────────────────────────────────────────────────────────────────
+OPTIONAL FUTURE POLISH (NOT IN SCOPE FOR THIS PASS)
+
+Aperture Index → four “exposure windows” → Work
+	•	As rays settle (progress 0.85–1.0), mask negative spaces into four windows
+	•	Reveal blurred previews behind emblem
+	•	Expand into Work tiles on next scroll beat
+
+Do not implement this now unless everything above is already working and handoff is seamless.
+
+────────────────────────────────────────────────────────────────────────────────────────────
+FINAL INTENDED BEHAVIOR (EXPLICIT)
+
+Local Process (0..1)
+	•	0.00–0.70: gears + cutouts + labels
+	•	0.65–0.88: gears fade down
+	•	0.68–0.74: PanelMask fades away (stage opens)
+	•	0.70–0.95: WebGL aperture indexes emblem in (spring lock)
+	•	0.95–0.98: WebGL fades out (3% crossfade window)
+	•	0.98–1.00: WebGL remains invisible
+
+Global ScrollController (0..1)
+	•	Before HANDOFF_IN_START: OrbitSystem emblem opacity remains 0 (hidden)
+	•	HANDOFF_IN_START–HANDOFF_IN_END: OrbitSystem emblem fades in
+	•	After HANDOFF_IN_END: OrbitSystem emblem is active/visible for Reveal + Work onward
+
+That is the baton handoff, correctly coordinated across the two timelines.
+
+Yep. Moving the WebGL aperture into Reveal is the cleaner architecture for exactly the reasons you’re describing:
+	•	Process keeps its mask + gears + labels untouched (no “fade the plate away so WebGL can be seen” gymnastics).
+	•	Reveal becomes the controlled stage with a sticky viewport and guaranteed scroll runway for the aperture to complete while centered.
+	•	You can pixel match WebGL ↔ SVG in one place (Reveal), then hand off into Work exactly as planned.
+
+What changes is the baton pass: it becomes Process → Reveal (WebGL builds) → Reveal (crossfade to Orbit/SVG) → Work.
+
+Below is the concrete reframe (no forks).
+
+⸻
+
+New structure
+
+Process
+	•	Remove the ApertureCanvas layer from Process entirely.
+	•	Remove PanelMask fade constants and code (mask stays doing its job).
+	•	Keep gears/cutouts/labels as is.
+
+Reveal
+	•	Reveal becomes a sticky “build + handoff” stage.
+	•	Reveal owns:
+	•	WebGL aperture progress
+	•	WebGL sizing (so it’s never huge/cropped)
+	•	WebGL → OrbitSystem/SVG crossfade timing
+	•	Your “lock ring” bridge visuals
+
+Work
+	•	Same Step 2 plan (viewfinder + selection model), but Reveal is now the true bridge.
+
+⸻
+
+Minimal implementation spec you can hand to Claude Code
+
+1) Process.tsx — remove the WebGL layer
+
+Delete the ApertureCanvas insert and any mask fade requirements you added only for WebGL visibility.
+
+You should end up with just:
+
+<EmblemField scrollProgress={scrollYProgress} />
+<PanelMask scrollProgress={scrollYProgress} />
+<ParallaxLabels scrollProgress={scrollYProgress} />
+
+No mask opacity transforms needed anymore.
+
+⸻
+
+2) Reveal.tsx — make it a pinned stage with its own scroll progress
+
+This gives you the runway you’re missing.
+
+import { useRef } from 'react';
+import { motion, useReducedMotion, useScroll, useTransform } from 'framer-motion';
+import { ApertureCanvas } from '@/components/emblem/ApertureEmblem/ApertureCanvas';
+import { MOTION } from '@/styles/motion';
+
+export function Reveal() {
+  const prefersReducedMotion = useReducedMotion();
+  const ref = useRef<HTMLElement | null>(null);
+
+  // Local Reveal scroll progress: 0..1
+  const { scrollYProgress } = useScroll({
+    target: ref,
+    offset: ['start start', 'end start'],
+  });
+
+  // Aperture action window inside Reveal (0..1 local)
+  const apertureProgress = useTransform(scrollYProgress, [0.05, 0.78], [0, 1]);
+  const webglOpacity = useTransform(scrollYProgress, [0.00, 0.06, 0.86, 1.00], [0, 1, 1, 0]);
+
+  // Orbit/SVG handoff (Reveal local)
+  // If you’re fading in OrbitSystem globally, you still map that globally, but this gives you a clean “Reveal stage” intent.
+  const orbitOpacityCue = useTransform(scrollYProgress, [0.78, 0.92], [0, 1]);
+
+  return (
+    <section
+      ref={ref}
+      id="reveal"
+      className="relative w-full bg-black z-50"
+      style={{ height: '220vh' }} // <- runway; tune later
+      aria-label="Transition to work"
+    >
+      <div className="sticky top-0 h-screen w-full flex items-center justify-center pointer-events-none">
+        {/* WebGL aperture stage */}
+        {!prefersReducedMotion && (
+          <motion.div className="absolute inset-0" style={{ opacity: webglOpacity }}>
+            <ApertureCanvas
+              // IMPORTANT: change ApertureCanvas to accept a generic progress MotionValue (0..1)
+              progress={apertureProgress}
+              // and a controlled size (square vmin)
+              sizeVmin={56}
+            />
+          </motion.div>
+        )}
+
+        {/* Center lock ring bridge (you already like this) */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.985 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{
+            duration: prefersReducedMotion ? 0 : MOTION.d.medium,
+            ease: MOTION.ease.clarity,
+          }}
+          className="relative"
+        >
+          <div className="w-[min(56vmin,460px)] h-[min(56vmin,460px)] rounded-full border border-white/10" />
+          <div className="absolute inset-0">
+            <div className="absolute left-1/2 top-0 -translate-x-1/2 w-px h-10 bg-white/10" />
+            <div className="absolute left-1/2 bottom-0 -translate-x-1/2 w-px h-10 bg-white/10" />
+            <div className="absolute top-1/2 left-0 -translate-y-1/2 h-px w-10 bg-white/10" />
+            <div className="absolute top-1/2 right-0 -translate-y-1/2 h-px w-10 bg-white/10" />
+          </div>
+          <div className="absolute inset-0 rounded-full blur-2xl bg-white/5" />
+        </motion.div>
+
+        <div className="absolute inset-x-0 bottom-0 h-[40vh] bg-gradient-to-t from-black via-black/80 to-transparent" />
+      </div>
+
+      {/* Optional: if you want a debug cue for Orbit handoff timing */}
+      <motion.div className="sr-only" style={{ opacity: orbitOpacityCue }} />
+    </section>
+  );
+}
+
+Key points:
+	•	Reveal is now the place where WebGL “finishes” while centered.
+	•	You don’t need Process mask fading anymore.
+	•	You now have full control over when the handoff occurs.
+
+⸻
+
+3) Update ApertureCanvas to accept a generic progress input + controlled square sizing
+
+Right now you’re driving WebGL from Process local scroll and using a fullscreen plane.
+
+Change the component signature so Reveal can drive it:
+
+// ApertureCanvas.tsx
+import { Canvas } from '@react-three/fiber';
+import { useReducedMotion } from 'framer-motion';
+import { AperturePlane } from './AperturePlane';
+
+type Props = {
+  progress: any;   // MotionValue<number> 0..1
+  sizeVmin?: number; // default 56
+};
+
+export function ApertureCanvas({ progress, sizeVmin = 56 }: Props) {
+  const prefersReducedMotion = useReducedMotion();
+  if (prefersReducedMotion) return null;
+
+  return (
+    <div className="absolute inset-0">
+      <Canvas
+        dpr={[1, 2]}
+        gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
+        orthographic
+        frameloop="demand"
+        camera={{ position: [0, 0, 10], zoom: 1 }}
+      >
+        <AperturePlane progress={progress} sizeVmin={sizeVmin} />
+      </Canvas>
+    </div>
+  );
+}
+
+Then in AperturePlane.tsx use a square plane sized to vmin (not viewport-wide). This is the sizing fix you were expecting.
+
+⸻
+
+4) OrbitSystem visibility in Reveal
+
+If your Orbit emblem currently isn’t visible in Reveal, it’s one of these:
+	•	The global emblem layer is still behind section backgrounds (z-index).
+	•	ScrollController still keeps opacity ~0 until later.
+
+So keep the two requirements:
+	•	Emblem container stays above backgrounds (z-[60]).
+	•	ScrollController must ramp opacity during Reveal’s time window (global).
+
+But the big win here: you can now align the handoff moment to the Reveal pinned stage visually, instead of guessing inside Process.

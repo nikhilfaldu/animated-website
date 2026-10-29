@@ -1,0 +1,483 @@
+Step 3: Exposure Windows Bridge Spec (Reveal Aperture → 4 Previews → Work Tiles)
+
+PURPOSE
+This file is ONLY executed AFTER Step 1 (Reveal WebGL + baton handoff) and Step 2 (Work selection + viewfinder + optional watermark) are complete and stable.
+
+Goal: upgrade the transition so the emblem does not merely “return,” it actively opens the portfolio.
+
+We implement the concept:
+Aperture Index (now in Reveal) → four exposure windows → Work tiles
+
+Where: late Reveal and the first beat of Work.
+
+Important: This step must NOT break the baton handoff. OrbitSystem remains the long lived emblem system. WebGL stays local to Reveal.
+
+This requires you to correctly hook into the existing global MotionValue (the one OrbitSystem uses). If the doc used a placeholder name (like useGlobalScrollProgress), you must swap it to our real implementation.
+
+────────────────────────────────────────────────────────────────────────
+HIGH LEVEL BEHAVIOR
+
+Timeline (GLOBAL scroll 0..1, tuned to your existing handoff window)
+	1.	Global 0.70 → 0.74 (HANDOFF window)
+
+	•	OrbitSystem begins fading in (already part of Step 1 ScrollController behavior)
+	•	Exposure windows begin appearing at screen center (soft)
+
+	2.	Global 0.74 → 0.80
+
+	•	Windows intensify
+	•	Previews behind them become clearer (still slightly blurred)
+	•	Windows remain centered, locked, deliberate
+
+	3.	Global 0.80 → 0.86
+
+	•	The 4 windows expand and morph into the exact positions of the 2x2 Work grid cards
+	•	Work section is already in the DOM in its final layout; no layout shifts
+
+	4.	Global 0.86 → 0.90
+
+	•	Bridge overlay fades out completely
+	•	Work grid is now fully “real”
+	•	Step 2 viewfinder and selection behaviors take over
+
+Note:
+This step no longer uses Process local progress. WebGL is in Reveal, so the earliest “hint” is driven by GLOBAL scroll (most stable cross section).
+
+────────────────────────────────────────────────────────────────────────
+NON NEGOTIABLES
+	•	Must work without hover. This is scroll driven.
+	•	Must respect prefers reduced motion:
+	•	If reduced motion: skip overlay entirely; Reveal + Work behave normally (Step 2 still works).
+	•	Must be pixel aligned:
+	•	4 window endpoints must match Work card bounding boxes exactly.
+	•	Must not create layout shifts:
+	•	Work grid must be rendered in its final layout from the start (no late mounting).
+	•	Must not reintroduce WebGL in Work.
+
+────────────────────────────────────────────────────────────────────────
+KEY IMPLEMENTATION STRATEGY
+
+We add ONE fixed bridge overlay component that spans:
+	•	the tail of Reveal
+	•	the top portion of Work (only long enough to finish the morph)
+
+Overlay draws:
+	•	a dark plate
+	•	4 rounded rect “holes” (windows) as an SVG mask or clip paths
+	•	behind the holes: preview imagery for each Work project
+
+Then we animate the 4 holes from:
+	•	a centered, emblem derived arrangement (tight quadrant layout)
+to:
+	•	the measured bounding boxes of the actual Work cards
+
+We use Framer Motion MotionValues for scroll progress and for rect geometry (x, y, w, h, r).
+
+No three.js here. This is pure DOM + SVG.
+
+────────────────────────────────────────────────────────────────────────
+FILES TO ADD / MODIFY
+
+ADD
+	•	src/sections/WorkBridge/WorkBridgeOverlay.tsx
+	•	src/sections/WorkBridge/useWorkCardRects.ts
+	•	src/sections/WorkBridge/useBridgeProgress.ts
+	•	src/sections/WorkBridge/bridgeConstants.ts
+	•	src/sections/WorkBridge/bridgeTypes.ts
+	•	src/sections/WorkBridge/index.ts
+
+MODIFY
+	•	src/sections/Work/workData.ts (ensure first 4 items have previewImageUrl + optional previewFocalPoint)
+	•	src/sections/Work/Work.tsx (already provides id=“work-card-${id}” per Step 2)
+	•	src/App.tsx (mount overlay near fixed emblem layer, so it spans Reveal → Work reliably)
+
+────────────────────────────────────────────────────────────────────────
+STEP 0: DATA REQUIREMENTS (FIRST 4 WORK PROJECTS NEED PREVIEWS)
+
+In src/sections/Work/workData.ts, for the first 4 projects:
+	•	previewImageUrl (stable)
+	•	previewFocalPoint optional (string like “50% 40%”)
+
+Do not change the order of the first 4 once Step 3 is live. They are the bridge targets.
+
+────────────────────────────────────────────────────────────────────────
+STEP 1: MAKE WORK CARDS MEASURABLE (STABLE TARGETS)
+
+Already done in Step 2. Verify your card root includes:
+	•	id={work-card-${project.id}}
+	•	data-work-id={project.id}
+
+Important:
+The element we measure must be the outer card container whose border radius matches final visuals.
+
+────────────────────────────────────────────────────────────────────────
+STEP 2: MEASURE CARD RECTANGLES
+
+Create: src/sections/WorkBridge/useWorkCardRects.ts
+
+Behavior:
+	•	Only measures while bridge is active.
+	•	On activation, measure immediately, then on resize and scroll.
+	•	Wait for fonts to be ready before final “ready” signal.
+
+// src/sections/WorkBridge/useWorkCardRects.ts
+import { useEffect, useMemo, useState } from 'react';
+
+export type Rect = { x: number; y: number; w: number; h: number; r: number };
+
+export function useWorkCardRects(projectIds: string[], active: boolean) {
+  const [rects, setRects] = useState<Record<string, Rect>>({});
+  const [ready, setReady] = useState(false);
+
+  const ids = useMemo(() => projectIds.slice(0, 4), [projectIds]);
+
+  useEffect(() => {
+    if (!active) return;
+    if (!ids.length) return;
+
+    let raf = 0;
+
+    function measure() {
+      const next: Record<string, Rect> = {};
+
+      for (const id of ids) {
+        const el = document.getElementById(`work-card-${id}`);
+        if (!el) continue;
+        const b = el.getBoundingClientRect();
+
+        next[id] = {
+          x: b.left,
+          y: b.top,
+          w: b.width,
+          h: b.height,
+          r: 16,
+        };
+      }
+
+      setRects(next);
+      setReady(ids.every((id) => !!next[id]));
+    }
+
+    const measureSoon = () => {
+      if (raf) cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(measure);
+    };
+
+    const run = async () => {
+      if ('fonts' in document) {
+        try {
+          // @ts-expect-error fonts exists in modern browsers
+          await document.fonts.ready;
+        } catch {
+          // ignore
+        }
+      }
+      measureSoon();
+    };
+
+    run();
+
+    const ro = new ResizeObserver(() => measureSoon());
+    ro.observe(document.documentElement);
+
+    window.addEventListener('resize', measureSoon);
+    window.addEventListener('scroll', measureSoon, { passive: true });
+
+    return () => {
+      if (raf) cancelAnimationFrame(raf);
+      ro.disconnect();
+      window.removeEventListener('resize', measureSoon);
+      window.removeEventListener('scroll', measureSoon);
+    };
+  }, [ids, active]);
+
+  return { rects, ready };
+}
+
+────────────────────────────────────────────────────────────────────────
+STEP 3: DEFINE BRIDGE TIMINGS (GLOBAL)
+
+Create: src/sections/WorkBridge/bridgeConstants.ts
+
+These are GLOBAL scroll values (0..1).
+Start with these because your handoff is already 0.70–0.74.
+
+// src/sections/WorkBridge/bridgeConstants.ts
+export const BRIDGE_GLOBAL_START = 0.70;
+export const BRIDGE_GLOBAL_LOCK = 0.74;
+
+export const BRIDGE_MORPH_START = 0.80;
+export const BRIDGE_MORPH_END = 0.86;
+
+export const BRIDGE_FADE_OUT_END = 0.90;
+
+────────────────────────────────────────────────────────────────────────
+STEP 4: BRIDGE TYPES
+
+Create: src/sections/WorkBridge/bridgeTypes.ts
+
+// src/sections/WorkBridge/bridgeTypes.ts
+export type ProjectPreview = {
+  id: string;
+  previewImageUrl: string;
+  previewFocalPoint?: string;
+};
+
+export type Rect = { x: number; y: number; w: number; h: number; r: number };
+
+────────────────────────────────────────────────────────────────────────
+STEP 5: BRIDGE PROGRESS HOOK (GLOBAL IN, MOTIONVALUES OUT)
+
+Create: src/sections/WorkBridge/useBridgeProgress.ts
+
+// src/sections/WorkBridge/useBridgeProgress.ts
+import { MotionValue, useTransform } from 'framer-motion';
+import {
+  BRIDGE_GLOBAL_START,
+  BRIDGE_GLOBAL_LOCK,
+  BRIDGE_MORPH_START,
+  BRIDGE_MORPH_END,
+  BRIDGE_FADE_OUT_END,
+} from './bridgeConstants';
+
+function clamp01(n: number) {
+  return Math.max(0, Math.min(1, n));
+}
+
+export function useBridgeProgress(globalProgress: MotionValue<number>) {
+  const hint = useTransform(globalProgress, (v) => {
+    const p = (v - BRIDGE_GLOBAL_START) / (BRIDGE_GLOBAL_LOCK - BRIDGE_GLOBAL_START);
+    return clamp01(p);
+  });
+
+  const morph = useTransform(globalProgress, (v) => {
+    const p = (v - BRIDGE_MORPH_START) / (BRIDGE_MORPH_END - BRIDGE_MORPH_START);
+    return clamp01(p);
+  });
+
+  const opacity = useTransform(globalProgress, (v) => {
+    if (v < BRIDGE_GLOBAL_START) return 0;
+    if (v < BRIDGE_MORPH_END) return 1;
+    const p = (v - BRIDGE_MORPH_END) / (BRIDGE_FADE_OUT_END - BRIDGE_MORPH_END);
+    return 1 - clamp01(p);
+  });
+
+  return { hint, morph, opacity };
+}
+
+────────────────────────────────────────────────────────────────────────
+STEP 6: CREATE THE OVERLAY COMPONENT (FOUR REAL PREVIEWS, NOT ONE STACKED IMAGE)
+
+Create: src/sections/WorkBridge/WorkBridgeOverlay.tsx
+
+This implementation:
+	•	Renders a dark plate
+	•	Creates 4 animated rounded-rect clip paths
+	•	Renders 4 separate  layers, each clipped by its own animated rect
+	•	Keeps OrbitSystem emblem visible above (overlay z 55, emblem z 60)
+
+// src/sections/WorkBridge/WorkBridgeOverlay.tsx
+import { MotionValue, motion, useReducedMotion, useTransform } from 'framer-motion';
+import { useMemo } from 'react';
+import { useBridgeProgress } from './useBridgeProgress';
+import type { Rect } from './useWorkCardRects';
+import type { ProjectPreview } from './bridgeTypes';
+
+type Props = {
+  globalProgress: MotionValue<number>;
+  projects: ProjectPreview[]; // first 4 in grid order
+  rects: Record<string, Rect>;
+  rectsReady: boolean;
+};
+
+function lerp(a: number, b: number, t: number) {
+  return a + (b - a) * t;
+}
+
+export function WorkBridgeOverlay({ globalProgress, projects, rects, rectsReady }: Props) {
+  const prefersReducedMotion = useReducedMotion();
+  const { hint, morph, opacity } = useBridgeProgress(globalProgress);
+
+  if (prefersReducedMotion) return null;
+  if (!projects || projects.length < 4) return null;
+
+  const startRects = useMemo(() => {
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+
+    const size = Math.min(vw, vh) < 640 ? 150 : 210;
+    const gap = Math.min(vw, vh) < 640 ? 14 : 18;
+    const r = 18;
+
+    const cx = vw / 2;
+    const cy = vh / 2;
+
+    return [
+      { x: cx - gap / 2 - size, y: cy - gap / 2 - size, w: size, h: size, r },
+      { x: cx + gap / 2,        y: cy - gap / 2 - size, w: size, h: size, r },
+      { x: cx - gap / 2 - size, y: cy + gap / 2,        w: size, h: size, r },
+      { x: cx + gap / 2,        y: cy + gap / 2,        w: size, h: size, r },
+    ];
+  }, []);
+
+  const windows = projects.slice(0, 4).map((p, i) => {
+    const end = rects[p.id];
+    const endRect = rectsReady && end ? end : startRects[i];
+
+    const x = useTransform(morph, (t) => lerp(startRects[i].x, endRect.x, t));
+    const y = useTransform(morph, (t) => lerp(startRects[i].y, endRect.y, t));
+    const w = useTransform(morph, (t) => lerp(startRects[i].w, endRect.w, t));
+    const h = useTransform(morph, (t) => lerp(startRects[i].h, endRect.h, t));
+    const r = useTransform(morph, (t) => lerp(startRects[i].r, endRect.r ?? startRects[i].r, t));
+
+    return { id: p.id, i, x, y, w, h, r, preview: p };
+  });
+
+  const blurPx = useTransform(hint, (v) => `${Math.max(0, 12 - v * 10)}px`);
+  const windowAlpha = useTransform(hint, (v) => 0.2 + 0.8 * v);
+
+  return (
+    <motion.div
+      aria-hidden="true"
+      className="fixed inset-0 pointer-events-none"
+      style={{ zIndex: 55, opacity }}
+    >
+      <svg className="absolute inset-0 h-full w-full" preserveAspectRatio="none">
+        <defs>
+          {windows.map((win) => (
+            <clipPath key={win.id} id={`wb-clip-${win.id}`}>
+              <motion.rect
+                x={win.x}
+                y={win.y}
+                width={win.w}
+                height={win.h}
+                rx={win.r}
+                ry={win.r}
+              />
+            </clipPath>
+          ))}
+        </defs>
+
+        <rect x="0" y="0" width="100%" height="100%" fill="rgba(0,0,0,0.92)" />
+
+        {windows.map((win) => (
+          <g key={win.id} clipPath={`url(#wb-clip-${win.id})`}>
+            <motion.image
+              href={win.preview.previewImageUrl}
+              x="0"
+              y="0"
+              width="100%"
+              height="100%"
+              preserveAspectRatio="xMidYMid slice"
+              style={{ filter: blurPx, opacity: windowAlpha }}
+            />
+          </g>
+        ))}
+
+        <rect x="0" y="0" width="100%" height="100%" fill="rgba(255,255,255,0.02)" />
+      </svg>
+    </motion.div>
+  );
+}
+
+────────────────────────────────────────────────────────────────────────
+STEP 7: MOUNT OVERLAY AT APP LEVEL (RELIABLE SPAN REVEAL → WORK)
+
+Create: src/sections/WorkBridge/index.ts
+
+export { WorkBridgeOverlay } from './WorkBridgeOverlay';
+export { useWorkCardRects } from './useWorkCardRects';
+export * from './bridgeConstants';
+
+In App.tsx (or top-level where fixed emblem layer is mounted):
+
+Requirements:
+	•	Use the SAME global MotionValue used by ScrollController to drive OrbitSystem.
+	•	Do not create a second global scroll tracker.
+
+Pseudo integration:
+
+import { useEffect, useMemo, useState } from 'react';
+import { useMotionValueEvent } from 'framer-motion';
+import { WorkBridgeOverlay, useWorkCardRects, BRIDGE_GLOBAL_START, BRIDGE_FADE_OUT_END } from '@/sections/WorkBridge';
+import { PROJECTS } from '@/sections/Work';
+
+import { useGlobalScrollProgress } from '@/components/ScrollController/useGlobalScrollProgress'; // must be your existing MotionValue
+
+export function App() {
+  const globalProgress = useGlobalScrollProgress();
+
+  const bridgeProjects = useMemo(() => {
+    return PROJECTS.slice(0, 4).map((p) => ({
+      id: p.id,
+      previewImageUrl: p.previewImageUrl,
+      previewFocalPoint: p.previewFocalPoint,
+    }));
+  }, []);
+
+  const [bridgeActive, setBridgeActive] = useState(false);
+
+  useMotionValueEvent(globalProgress, 'change', (v) => {
+    setBridgeActive(v >= BRIDGE_GLOBAL_START && v <= BRIDGE_FADE_OUT_END);
+  });
+
+  const { rects, ready } = useWorkCardRects(
+    bridgeProjects.map((p) => p.id),
+    bridgeActive
+  );
+
+  useEffect(() => {
+    for (const p of PROJECTS.slice(0, 4)) {
+      const img = new Image();
+      img.decoding = 'async';
+      img.src = p.previewImageUrl;
+    }
+  }, []);
+
+  return (
+    <>
+      {/* … your fixed OrbitSystem emblem layer … */}
+
+      <WorkBridgeOverlay
+        globalProgress={globalProgress}
+        projects={bridgeProjects}
+        rects={rects}
+        rectsReady={ready}
+      />
+
+      {/* … your sections including <Reveal /> and <Work /> … */}
+    </>
+  );
+}
+
+If you do not already have useGlobalScrollProgress, you must expose the MotionValue from your existing ScrollController (context/hook). Do not invent a new scroll tracker.
+
+────────────────────────────────────────────────────────────────────────
+STEP 8: ALIGNMENT VALIDATION
+
+Must verify:
+	•	At the end of morph (BRIDGE_MORPH_END), windows overlay the Work cards exactly.
+
+If off by a few pixels:
+	•	Confirm Work padding and grid gap match expectation
+	•	Confirm you are measuring the exact card container that defines the visible boundary
+	•	If fonts shift layout, rely on document.fonts.ready (already included)
+
+────────────────────────────────────────────────────────────────────────
+REDUCED MOTION
+
+If prefers reduced motion:
+	•	WorkBridgeOverlay returns null
+	•	Reveal + Work show normally
+	•	Step 2 selection still functions
+
+────────────────────────────────────────────────────────────────────────
+DO NOT IMPLEMENT
+	•	Do not mount WebGL in Work.
+	•	Do not add per-card scroll reveal animations.
+	•	Do not use negative margin overlap hacks to “help” alignment.
+	•	Do not change Step 1 baton handoff logic.
+
+This step is a controlled bridge overlay only.
+
+End Step 3.

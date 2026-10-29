@@ -17,3 +17,4 @@ npm run dev
 | `oberlab-turbofan-scroll/` | Scroll-driven procedural jet engine that assembles and spools up, with synthesized sound (static HTML — run `npx serve .` inside the folder) |
 | `iron-man/` | Scroll-driven image-sequence hero with cinematic sections (Next.js, Framer Motion, Lenis) |
 | `frontenddesignbasics/` | Frontend design guide site — tools, principles and live demos (Next.js; uses pnpm: `pnpm install` then `pnpm dev`) |
+| `orbit-plus-v3/` | Orbit+ creative agency site with a scroll-driven 3D aperture emblem (React, Vite, React Three Fiber, Framer Motion, Lenis) |
