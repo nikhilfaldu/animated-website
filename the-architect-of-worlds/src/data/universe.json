@@ -1,0 +1,289 @@
+{
+  "objects": [
+    {
+      "id": "universe-overview",
+      "name": "The Architect Universe",
+      "type": "universe",
+      "description": "An ambitious 3D WebGL universe crafted for the 3D Websites Hackathon. Featuring 6 living themed worlds, real-time Web Audio procedural soundscapes, NASA astrophysical spectrometry data, custom GLSL shaders, and Nova AI guidance.",
+      "mass": "Infinite System Balance",
+      "diameter": "120.0 AU Observable Orbit",
+      "gravity": "Unified Field Mechanics",
+      "temperature": "3.2 K (Cosmic Background)",
+      "orbitalPeriod": "Continuous Real-Time",
+      "distanceFromCore": "0.0 AU (Cosmic Origin)",
+      "atmosphere": ["Quantum Energy Tethers 35%", "Volumetric Starlight 45%", "Cosmic Dust Motes 20%"],
+      "composition": ["React 19 Core", "Next.js 15 App Router", "Three.js & R3F", "GLSL Shaders", "Web Audio API", "OpenAI Streaming"],
+      "moonsCount": 6,
+      "satellites": ["Nova Orbital AI Companion", "Architect Portfolio Terminal"],
+      "keyMissions": ["3D Websites Hackathon 2026", "Master Experience Blueprint Deployment"],
+      "scientificFacts": [
+        "Every world is rendered with custom GLSL procedural fragment and vertex shaders.",
+        "Acoustic feedback and drones are synthesized in real-time using the Web Audio API AudioContext.",
+        "Interactive 3D raycasting is enabled across all planetary coordinates."
+      ],
+      "lore": "The Architect of Worlds universe was forged to demonstrate that 3D websites can transcend static navigation and create unforgettable emotional interactive journeys.",
+      "radius": "60.0 AU",
+      "color": "#00F0FF",
+      "interestingFacts": "Contains 6 handcrafted interactive WOW moments: Anvil Strike, Seed Planting, Ocean Dive, Crystal Spire Refraction, Constellation Stretching, and Time Rewind.",
+      "relatedObjects": ["nexus", "emerald", "forge", "ocean", "crystal", "singularity"],
+      "suggestedQuestions": [
+        "What technologies power this 3D universe?",
+        "Who is the Architect of Worlds?",
+        "How do I explore all 6 worlds?"
+      ]
+    },
+    {
+      "id": "emerald",
+      "name": "Terra Earth",
+      "type": "planet",
+      "description": "A lush blue-green terrestrial planet teeming with procedural forests, oceans, cascading waterfalls, and drifting cloud systems. It is the living home of organic life, nature, and humanity in the cosmos.",
+      "mass": "5.972 × 10^24 kg",
+      "diameter": "12,742 km",
+      "gravity": "9.807 m/s² (1.0 G)",
+      "temperature": "15°C (Global Average)",
+      "orbitalPeriod": "365.25 Days",
+      "distanceFromCore": "1.0 AU",
+      "atmosphere": ["Nitrogen 78%", "Oxygen 21%", "Argon 0.93%", "Carbon Dioxide 0.04%"],
+      "composition": ["Silicate Crust", "Viscous Mantle", "Liquid Outer Core", "Solid Iron Inner Core"],
+      "moonsCount": 1,
+      "satellites": ["International Space Station", "Hubble Space Telescope"],
+      "keyMissions": ["Apollo Lunar Exploration", "Voyager Interstellar Message", "Terra Climate Monitoring"],
+      "scientificFacts": [
+        "Earth is the only astronomical object known to harbor liquid oceans on its surface and support living organisms.",
+        "A powerful internal geodynamo generates a protective magnetosphere shielding the surface from solar radiation.",
+        "Plate tectonics continuously recycle carbon dioxide and stabilize global temperatures over millions of years."
+      ],
+      "lore": "Terra Earth is the crown jewel of organic life—seeded by the Architect to nurture creative thought, nature, and human discovery.",
+      "radius": "6,371 km",
+      "color": "#00D68F",
+      "interestingFacts": "Contains over 71% surface water coverage and supports millions of biological species.",
+      "relatedObjects": ["nexus", "ocean", "crystal"],
+      "suggestedQuestions": [
+        "What makes Terra Earth unique in the universe?",
+        "Compare Terra Earth with Ocean World.",
+        "How does the atmosphere support human life?"
+      ]
+    },
+    {
+      "id": "forge",
+      "name": "Forge Planet",
+      "type": "planet",
+      "description": "A molten volcanic world of liquid magma, glowing basalt ridges, and intense radiogenic heating. It represents the crucible of trial, engineering, and raw power.",
+      "mass": "7.320 × 10^24 kg",
+      "diameter": "14,200 km",
+      "gravity": "13.72 m/s² (1.4 G)",
+      "temperature": "1200°C (Surface)",
+      "orbitalPeriod": "687 Days",
+      "distanceFromCore": "24.8 AU",
+      "atmosphere": ["Sulfur Dioxide 65%", "Carbon Dioxide 30%", "Argon 5%"],
+      "composition": ["Basalt Crust", "Molten Iron-Nickel Core", "Heavy Ore Veins"],
+      "moonsCount": 0,
+      "satellites": ["Vulcan Energy Collector"],
+      "keyMissions": ["Thermal Energy Extraction Program", "Deep Core Drilling Probe"],
+      "scientificFacts": [
+        "Volcanic worlds are typically very young or endure extreme tidal heating from nearby gas giants.",
+        "Lava rivers indicate a very thin crust and high internal radiogenic heat dissipation.",
+        "Heavy element density creates localized gravitational anomalies across lava plains."
+      ],
+      "lore": "The Forge is the Architect's cosmic foundry, where heavy elements and glowing project crystals are forged in the fires of creation.",
+      "radius": "7,100 km",
+      "color": "#FF4500",
+      "interestingFacts": "Project crystals formed in the mantle contain compressed digital data structures.",
+      "relatedObjects": ["pulsar-1", "nexus", "singularity"],
+      "suggestedQuestions": [
+        "What fuels the supervolcano?",
+        "Compare Forge Planet with Singularity.",
+        "How do project crystals crystallize in magma?"
+      ]
+    },
+    {
+      "id": "ocean",
+      "name": "Ocean World",
+      "type": "planet",
+      "description": "A vast, deep sapphire ocean planet with bioluminescent deep-sea trenches and leviathan organisms. It represents the endless depths of knowledge.",
+      "mass": "8.150 × 10^24 kg",
+      "diameter": "16,200 km",
+      "gravity": "10.78 m/s² (1.1 G)",
+      "temperature": "14°C (Surface Ocean)",
+      "orbitalPeriod": "432 Days",
+      "distanceFromCore": "38.5 AU",
+      "atmosphere": ["Water Vapor 85%", "Oxygen 12%", "Xenon 3%"],
+      "composition": ["Global Water Layer (200km deep)", "High-Pressure Ice Core"],
+      "moonsCount": 2,
+      "satellites": ["Nautilus Sub-Surface Buoy"],
+      "keyMissions": ["Bioluminescent Trench Expedition", "Acoustic Marine Survey"],
+      "scientificFacts": [
+        "Hycean ocean worlds are prime candidates for supporting complex marine life.",
+        "High water-column pressure forces deep water to crystallize into exotic Ice VII phases.",
+        "Sub-surface bioluminescence generates light through enzymatic luciferin reactions."
+      ],
+      "lore": "A sanctuary of knowledge, where the Architect's memories swim like whales beneath the waves.",
+      "radius": "8,100 km",
+      "color": "#0077B6",
+      "interestingFacts": "Floating skill bubbles are actual concentrated pockets of technical knowledge.",
+      "relatedObjects": ["nexus", "emerald", "crystal"],
+      "suggestedQuestions": [
+        "How deep is the global ocean?",
+        "Compare Ocean World with Terra Earth.",
+        "What lies inside the deep sea trench?"
+      ]
+    },
+    {
+      "id": "crystal",
+      "name": "Crystal Moon",
+      "type": "moon",
+      "description": "A jagged icy moon encased in a cracked crystalline crust, shrouded in perpetual snowstorms and vivid multicolored auroras.",
+      "mass": "1.305 × 10^22 kg",
+      "diameter": "4,800 km",
+      "gravity": "1.57 m/s² (0.16 G)",
+      "temperature": "-180°C (Surface)",
+      "orbitalPeriod": "27.3 Days",
+      "distanceFromCore": "52.1 AU",
+      "atmosphere": ["Methane Traces", "Neon", "Sublimated Water Vapor"],
+      "composition": ["Water Ice Shell", "Subsurface Ocean", "Silicate Core"],
+      "moonsCount": 0,
+      "satellites": ["Polar Aurora Array"],
+      "keyMissions": ["Cryo-Ice Core Sampling", "Aurora Spectrometry"],
+      "scientificFacts": [
+        "Auroras are caused by the collision of charged solar particles with atmospheric gases.",
+        "Tidal flexure from its parent planet heats the subsurface ocean, keeping it liquid.",
+        "Crystalline quartz structures refract ambient light into spectral prism beams."
+      ],
+      "lore": "The crystal spires hold the frozen echoes of past civilizations that the Architect attempted to save.",
+      "radius": "2,400 km",
+      "color": "#9B5DE5",
+      "interestingFacts": "Snow falls upward during high planetary magnetic alignments.",
+      "relatedObjects": ["emerald", "ocean"],
+      "suggestedQuestions": [
+        "What causes the multi-colored auroras?",
+        "Compare Crystal Moon with Forge Planet.",
+        "Is there liquid water beneath the ice crust?"
+      ]
+    },
+    {
+      "id": "singularity",
+      "name": "Singularity",
+      "type": "black_hole",
+      "description": "A supermassive gravitational vortex surrounded by a blinding accretion disk of relativistic gas and light.",
+      "scientificFacts": [
+        "The event horizon marks the boundary where escape velocity exceeds the speed of light.",
+        "Superheated gas in the accretion disk emits intense X-ray and gamma radiation.",
+        "Gravitational time dilation causes time to pass infinitely slower near the horizon."
+      ],
+      "lore": "The gateway to the Architect's personal domain. Only those who master the chaos of code can pass through.",
+      "mass": "4.3 × 10^6 Solar Masses",
+      "diameter": "Schwarzschild Radius 12.7M km",
+      "gravity": "Infinite at Singularity",
+      "temperature": "10^7 K (Accretion Disk)",
+      "orbitalPeriod": "Static Void Center",
+      "distanceFromCore": "66.0 AU",
+      "atmosphere": ["Plasma Jets", "Relativistic Electrons"],
+      "composition": ["Gravitational Singularity"],
+      "moonsCount": 0,
+      "satellites": ["Horizon Relativistic Probe"],
+      "keyMissions": ["Event Horizon Telescope Survey", "Gravitational Wave Capture"],
+      "radius": "Event Horizon 12.7M km",
+      "color": "#1A0033",
+      "interestingFacts": "Time slows down infinitely as you approach the Schwarzschild radius.",
+      "relatedObjects": ["quasar-1", "forge"],
+      "suggestedQuestions": [
+        "What happens when matter crosses the event horizon?",
+        "Compare Singularity with Quasar Prime.",
+        "How does gravitational time dilation affect space travelers?"
+      ]
+    },
+    {
+      "id": "nexus",
+      "name": "The Nexus",
+      "type": "star",
+      "description": "The central golden energy core of the digital cosmos, connecting all worlds, data streams, and orbital realities.",
+      "mass": "1.989 × 10^30 kg",
+      "diameter": "1,392,700 km",
+      "gravity": "274 m/s² (28.0 G)",
+      "temperature": "5778 K (Surface)",
+      "orbitalPeriod": "Center Core",
+      "distanceFromCore": "0.0 AU",
+      "atmosphere": ["Pure Plasma", "Data Photons"],
+      "composition": ["Hydrogen Fusion Core", "Helium Shell"],
+      "moonsCount": 7,
+      "satellites": ["Nexus Core Anchor Station"],
+      "keyMissions": ["System Origin Calibration", "Core Energy Monitoring"],
+      "scientificFacts": [
+        "Central stars contain 99.8% of all matter in planetary systems.",
+        "Solar flares emit energetic particles traveling at up to 3 million km/h."
+      ],
+      "lore": "The root directory of the universe where every path begins and every algorithm converges.",
+      "radius": "696,340 km",
+      "color": "#FFB800",
+      "interestingFacts": "It streams raw energy to all surrounding planets via quantum tether beams.",
+      "relatedObjects": ["emerald", "forge", "ocean", "singularity"],
+      "suggestedQuestions": [
+        "What powers The Nexus core?",
+        "How are surrounding planets tethered to it?",
+        "Why is it called the root directory of existence?"
+      ]
+    },
+    {
+      "id": "pulsar-1",
+      "name": "Pulsar Alpha",
+      "type": "pulsar",
+      "description": "A rapidly rotating neutron star emitting intense beams of electromagnetic radiation across space.",
+      "mass": "1.4 Solar Masses",
+      "diameter": "20 km",
+      "gravity": "2.0 × 10^11 G",
+      "temperature": "1,000,000 K",
+      "orbitalPeriod": "Spin Period 1.5 ms",
+      "distanceFromCore": "45.0 AU",
+      "atmosphere": ["Relativistic Magnetosphere"],
+      "composition": ["Neutronium Degenerate Matter"],
+      "moonsCount": 0,
+      "satellites": ["Gamma Ray Array"],
+      "keyMissions": ["Atomic Pulse Timing Calibration"],
+      "scientificFacts": [
+        "Pulsars are super-dense neutron star remnants left behind by massive supernova explosions.",
+        "Their rotation speed is so precise they rival atomic clocks."
+      ],
+      "lore": "The Architect uses Pulsar Alpha as a cosmic lighthouse to guide stray matter back into the sector.",
+      "radius": "10 km",
+      "color": "#00FFFF",
+      "interestingFacts": "A single teaspoon of pulsar material weighs over 6 billion tons on Earth.",
+      "relatedObjects": ["forge", "singularity"],
+      "suggestedQuestions": [
+        "How fast does Pulsar Alpha rotate?",
+        "What is degenerate neutronium matter?",
+        "How is it used as a cosmic clock?"
+      ]
+    },
+    {
+      "id": "quasar-1",
+      "name": "Quasar Prime",
+      "type": "quasar",
+      "description": "An extremely luminous active galactic nucleus powered by a supermassive black hole emitting relativistic plasma jets.",
+      "mass": "100 Million Solar Masses",
+      "diameter": "1 AU Core",
+      "gravity": "Extreme Relativistic",
+      "temperature": "10^12 K (Plasma Jets)",
+      "orbitalPeriod": "Static Deep Space",
+      "distanceFromCore": "90.0 AU",
+      "atmosphere": ["Relativistic Synchrotron Plasma"],
+      "composition": ["Supermassive Black Hole Core & Accretion Ring"],
+      "moonsCount": 0,
+      "satellites": ["Deep Field Spectrograph"],
+      "keyMissions": ["Cosmic Dawn Observation"],
+      "scientificFacts": [
+        "Quasars can outshine entire galaxies containing hundreds of billions of stars.",
+        "Relativistic jets shoot out perpendicular to accretion disks at 99.9% light speed."
+      ],
+      "lore": "Quasar Prime powers the entire Architect of Worlds simulation engine.",
+      "radius": "1 AU",
+      "color": "#FF00AA",
+      "interestingFacts": "Its light has been traveling across space for 12 billion light years.",
+      "relatedObjects": ["singularity", "pulsar-1"],
+      "suggestedQuestions": [
+        "How bright is Quasar Prime?",
+        "What fuels relativistic plasma jets?",
+        "How old is this object?"
+      ]
+    }
+  ]
+}

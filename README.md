@@ -18,3 +18,4 @@ npm run dev
 | `iron-man/` | Scroll-driven image-sequence hero with cinematic sections (Next.js, Framer Motion, Lenis) |
 | `frontenddesignbasics/` | Frontend design guide site — tools, principles and live demos (Next.js; uses pnpm: `pnpm install` then `pnpm dev`) |
 | `orbit-plus-v3/` | Orbit+ creative agency site with a scroll-driven 3D aperture emblem (React, Vite, React Three Fiber, Framer Motion, Lenis) |
+| `the-architect-of-worlds/` | Cinematic 3D universe of explorable planets with an AI chat feature (Next.js, React Three Fiber, GSAP; AI needs `OPENAI_API_KEY` in `.env.local`) |
