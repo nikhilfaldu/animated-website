@@ -1,0 +1,45 @@
+{
+  "name": "scroll-cinema",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Scroll-Cinema — a 3D animated website creator. Scroll-driven video + Blender/Three.js hero, built on GSAP ScrollTrigger. Ships with an AI-agent skill.",
+  "keywords": [
+    "scroll-animation",
+    "gsap",
+    "scrolltrigger",
+    "lenis",
+    "threejs",
+    "webgl",
+    "blender",
+    "gltf",
+    "video-scrubbing",
+    "scrollytelling",
+    "landing-page",
+    "apple-style",
+    "stripe-style"
+  ],
+  "license": "MIT",
+  "author": "indranilnnd-creator",
+  "homepage": "https://indranilnnd-creator.github.io/amazing-3d-animated-website-creator/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/indranilnnd-creator/amazing-3d-animated-website-creator.git"
+  },
+  "bugs": {
+    "url": "https://github.com/indranilnnd-creator/amazing-3d-animated-website-creator/issues"
+  },
+  "scripts": {
+    "vendor": "node scripts/vendor-libs.mjs",
+    "serve": "python -m http.server 8080"
+  },
+  "dependencies": {
+    "gsap": "^3.15.0",
+    "lenis": "^1.1.14",
+    "three": "^0.160.0"
+  },
+  "devDependencies": {
+    "gifenc": "^1.0.3",
+    "pngjs": "^7.0.0",
+    "puppeteer-core": "^25.12.0"
+  }
+}

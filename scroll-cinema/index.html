@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en" class="no-js">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Meadow — Scroll-Cinema Demo · Video Scrub + 3D Hero</title>
+  <meta name="description" content="A scroll-driven cinematic website template + AI-agent skill: a fullscreen video that scrubs with scroll, a Three.js 3D hero, and large typography overlays. Apple/Stripe-grade motion on plain HTML/CSS/JS." />
+  <meta name="theme-color" content="#050607" />
+
+  <!-- Social / Open Graph preview -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Scroll-Cinema — a 3D animated website creator" />
+  <meta property="og:description" content="Scroll to scrub a fullscreen film forward and back, with a Blender/Three.js hero on the same clock. Plain HTML/CSS/JS + an AI-agent skill." />
+  <meta property="og:image" content="https://indranilnnd-creator.github.io/amazing-3d-animated-website-creator/docs/social-preview.png" />
+  <meta property="og:url" content="https://indranilnnd-creator.github.io/amazing-3d-animated-website-creator/" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Scroll-Cinema — a 3D animated website creator" />
+  <meta name="twitter:description" content="Scroll-driven video + 3D hero. GSAP ScrollTrigger, Three.js, Blender pipeline." />
+  <meta name="twitter:image" content="https://indranilnnd-creator.github.io/amazing-3d-animated-website-creator/docs/social-preview.png" />
+
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
+  <link rel="preload" as="video" href="assets/media/scrub-film.mp4" type="video/mp4" />
+  <link rel="stylesheet" href="assets/css/styles.css?v=2" />
+  <script>document.documentElement.classList.replace('no-js','js');</script>
+
+  <!-- Libraries vendored locally — no runtime CDN. Re-run: node scripts/vendor-libs.mjs -->
+  <script src="assets/vendor/gsap/gsap.min.js"></script>
+  <script src="assets/vendor/gsap/ScrollTrigger.min.js"></script>
+  <script src="assets/vendor/lenis/lenis.min.js"></script>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "./assets/vendor/three/build/three.module.js",
+      "three/addons/": "./assets/vendor/three/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to main content</a>
+
+  <!-- FULLSCREEN scroll-scrubbed film background: fixed behind the whole page.
+       Drop your own film at assets/media/scrub-film.mp4, encoded ALL-INTRA 720p
+       (keyframe every frame) so every scroll seek decodes a single frame instantly.
+       4K long-GOP footage stalls ~1s per seek and flashes black. See README + skill/.
+       The <video> is only a decoder; the canvas below is what you actually see. -->
+  <div class="film-bg" aria-hidden="true">
+    <video id="scrubVideo"
+      class="film-bg__video"
+      poster="assets/media/scrub-poster.jpg"
+      muted playsinline preload="auto" disablepictureinpicture
+      disableremoteplayback tabindex="-1"></video>
+    <!-- Canvas film renderer: draws the video each frame and HOLDS the last
+         good frame when a seek has no decoded data yet — so the fullscreen
+         background can never flash black. -->
+    <canvas id="filmCanvas" class="film-bg__canvas" aria-hidden="true"></canvas>
+    <div class="film-bg__scrim"></div>
+    <div class="film-bg__grain"></div>
+  </div>
+
+  <!-- FIXED centered 3D stage: the hero object stays centered on the whole scroll.
+       Renders assets/Objects/hero.glb (export a Blender object via the skill),
+       or a procedurally-generated placeholder if the model is absent.
+       pointer-events:none so all content stays clickable. -->
+  <div class="stage3d" aria-hidden="true">
+    <canvas id="hero3d"></canvas>
+  </div>
+
+  <!-- Fixed HUD + film progress (driven by the same full-page progress) -->
+  <div class="film-hud" aria-hidden="true">
+    <span class="hud__rec"><i></i> <span id="buildTag">BUILD 2</span> · SCROLL-CINEMA</span>
+    <span class="hud__act" id="hudAct">ACT I — STEEL</span>
+    <span class="hud__time" id="hudTime">00:00 / 00:00</span>
+  </div>
+  <div class="film-progress" aria-hidden="true"><span id="filmProgress"></span></div>
+
+  <!-- Frosted premium nav -->
+  <header class="site-header" id="top">
+    <div class="container header__bar">
+      <a class="brand" href="#top" aria-label="Meadow home">
+        <span class="brand__mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21c0-6 0-9 0-12"/><path d="M12 9c0-3.3 2.7-6 6-6 0 3.3-2.7 6-6 6Z"/><path d="M12 13c0-3.3-2.7-6-6-6 0 3.3 2.7 6 6 6Z"/></svg>
+        </span>
+        <span class="brand__name">Meadow</span>
+        <span class="brand__tag">Scroll-Cinema</span>
+      </a>
+      <nav class="nav" aria-label="Primary">
+        <button class="nav__toggle" type="button" aria-expanded="false" aria-controls="primary-nav">
+          <span class="sr-only">Toggle navigation</span>
+          <span class="nav__bars" aria-hidden="true"></span>
+        </button>
+        <ul class="nav__list" id="primary-nav">
+          <li><a href="#film">Film</a></li>
+          <li><a href="#craft">Craft</a></li>
+          <li><a href="#metrics">Metrics</a></li>
+          <li><a href="#pricing">Pricing</a></li>
+        </ul>
+      </nav>
+      <div class="header__right">
+        <a class="header__signin" href="https://garden-insights.lovable.app/login">Sign in</a>
+        <a class="btn btn--primary btn--sm" href="https://garden-insights.lovable.app/signup">Start growing</a>
+      </div>
+    </div>
+    <div class="scroll-progress" aria-hidden="true"><span id="scrollProgressBar"></span></div>
+  </header>
+
+  <main id="main">
+    <!-- ============ HERO : Blender 3D object ============ -->
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="hero__glow" aria-hidden="true"></div>
+      <div class="hero__fallback-note" id="hero3dStatus" role="status" aria-live="polite">Loading forged steel…</div>
+
+      <div class="container hero__inner">
+        <p class="eyebrow eyebrow--glass"><span class="pulse-dot" aria-hidden="true"></span> Blender-forged hero &middot; Real-time 3D &middot; Scroll to direct</p>
+        <h1 class="hero__title" id="hero-title">
+          <span class="hero__line">Strength,</span>
+          <span class="hero__line hero__gradient">beautifully engineered.</span>
+        </h1>
+        <p class="hero__lede">
+          A scroll-driven template where the whole page is the timeline. Drop in a
+          3D model (<code>assets/Objects/hero.glb</code>) and a film
+          (<code>assets/media/scrub-film.mp4</code>) and both move as one.
+        </p>
+        <div class="hero__actions">
+          <a class="btn btn--primary btn--lg" href="#film">Play the film <span aria-hidden="true">&darr;</span></a>
+          <a class="btn btn--ghost btn--lg" href="#craft">Explore the craft</a>
+        </div>
+        <div class="hero__meta">
+          <div class="hero__hint"><span aria-hidden="true">✦</span> The object stays centered while you scroll &middot; Move your mouse for parallax &middot; Scroll scrubs the film + the model together</div>
+          <div class="hero__specs">
+            <span>assets/media/scrub-film.mp4</span><i>·</i>
+            <span>assets/Objects/hero.glb</span><i>·</i>
+            <span>GSAP ScrollTrigger scrub</span>
+          </div>
+        </div>
+      </div>
+      <div class="scroll-cue" aria-hidden="true"><span></span>Scroll</div>
+    </section>
+
+    <!-- ============ FILM BEATS (scroll over the fixed fullscreen video) ============ -->
+    <section class="scrub" id="film" aria-labelledby="film-title">
+      <h2 id="film-title" class="sr-only">Scroll-driven film</h2>
+      <div class="container">
+        <!-- Large typography overlays — each scrolls over the fullscreen video -->
+        <figure class="beat beat--1" data-beat>
+          <blockquote><p class="beat__kicker">Scene 01 — Presence</p><h3 class="beat__title">Cinematic clarity.<br />Frame by frame.</h3><p class="beat__sub">Your film, encoded all-intra so every frame is bound to your scroll position — scroll down and it plays forward, scroll up and it reverses.</p></blockquote>
+        </figure>
+        <figure class="beat beat--2" data-beat>
+          <blockquote><p class="beat__kicker">Scene 02 — Control</p><h3 class="beat__title">Forward when you push.<br />Reverse when you pull.</h3><p class="beat__sub">GSAP ScrollTrigger maps <code>page progress × duration → currentTime</code> — top of page is frame 0, bottom is the last frame. Perfectly reversible.</p></blockquote>
+        </figure>
+        <figure class="beat beat--3" data-beat>
+          <blockquote><p class="beat__kicker">Scene 03 — Insight</p><h3 class="beat__title">Metrics, meet<br />mise-en-scène.</h3><p class="beat__sub">Revenue, users, conversion — staged like title cards over the footage. Apple scale. Stripe restraint.</p></blockquote>
+        </figure>
+        <figure class="beat beat--4" data-beat>
+          <blockquote><p class="beat__kicker">Scene 04 — Invitation</p><h3 class="beat__title">Your story,<br />beautifully measured.</h3><p class="beat__cta"><a class="btn btn--light btn--lg" href="https://garden-insights.lovable.app/signup">Start growing — it's free</a></p></blockquote>
+        </figure>
+      </div>
+      <p class="sr-only" id="scrubFallbackNote">If motion is reduced or video cannot load, a static poster and full text remain readable.</p>
+    </section>
+
+    <!-- ============ CRAFT / 3D provenance ============ -->
+    <section class="section section--light" id="craft" aria-labelledby="craft-title">
+      <div class="container">
+        <p class="section__eyebrow">Forged in Blender · Lit in WebGL</p>
+        <h2 class="section__title section__title--xl" id="craft-title">A real 3D hero. Zero fakery.</h2>
+        <p class="section__lede">The hero object is any Blender model — exported headless via <code>blender --background --python</code> to <code>hero.glb</code> and rendered here with image-based lighting, PBR materials, and scroll-linked rotation. No model supplied? A procedurally-generated placeholder renders instead, so the page never looks broken.</p>
+        <div class="grid grid--3">
+          <article class="card card--dark reveal"><h3>True PBR</h3><p>Metalness / roughness maps from the .blend survive the glTF round-trip. Room-environment IBL keeps highlights honest.</p><code>hero.glb · PBR maps</code></article>
+          <article class="card card--dark reveal"><h3>Scroll-choreographed</h3><p>GSAP ties object spin, float and camera dolly to the same ScrollTrigger timeline as the page — hero and film move as one.</p><code>gsap + ScrollTrigger scrub: 1</code></article>
+          <article class="card card--dark reveal"><h3>Pointer-parallax</h3><p>The model stays centered and reacts to the cursor — rotate, tilt and dolly — while every click still reaches the page beneath it.</p><code>three · GLTFLoader</code></article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ METRICS ============ -->
+    <section class="section section--cream" id="metrics" aria-labelledby="metrics-title">
+      <div class="container">
+        <p class="section__eyebrow">Clarity, without the clutter</p>
+        <h2 class="section__title section__title--xl" id="metrics-title">A dashboard that respects your attention.</h2>
+        <dl class="kpis kpis--light" aria-label="Key metrics">
+          <div class="kpi reveal"><dt>Revenue</dt><dd><span class="kpi__value" data-count-to="132800" data-prefix="$" data-format="compact">$132.8K</span></dd><span class="trend trend--up">+25.6%</span></div>
+          <div class="kpi reveal"><dt>Users</dt><dd><span class="kpi__value" data-count-to="3300" data-format="compact">3.3K</span></dd><span class="trend trend--up">+27.6%</span></div>
+          <div class="kpi reveal"><dt>Conversion</dt><dd><span class="kpi__value" data-count-to="3.9" data-format="percent" data-decimals="1">3.9%</span></dd><span class="trend trend--down">−0.1%</span></div>
+          <div class="kpi reveal"><dt>Churn</dt><dd><span class="kpi__value" data-count-to="1.6" data-format="percent" data-decimals="1">1.6%</span></dd><span class="trend trend--flat">−0.2%</span></div>
+        </dl>
+        <div class="bento">
+          <article class="panel panel--chart reveal">
+            <header class="panel__head"><h3>Revenue, Users &amp; Sessions</h3><p>23 Jun – 20 Sep</p></header>
+            <div class="legend"><span class="legend__item legend__item--revenue">Revenue</span><span class="legend__item legend__item--users">Users</span><span class="legend__item legend__item--sessions">Sessions</span></div>
+            <div class="chart" role="img" aria-label="Revenue, users and sessions trending upward from June to September">
+              <span class="chart__bar chart__bar--revenue" style="--h:78%"></span><span class="chart__bar chart__bar--users" style="--h:52%"></span><span class="chart__bar chart__bar--sessions" style="--h:38%"></span><span class="chart__bar chart__bar--revenue" style="--h:64%"></span><span class="chart__bar chart__bar--users" style="--h:47%"></span><span class="chart__bar chart__bar--sessions" style="--h:44%"></span><span class="chart__bar chart__bar--revenue" style="--h:82%"></span><span class="chart__bar chart__bar--users" style="--h:60%"></span><span class="chart__bar chart__bar--sessions" style="--h:51%"></span><span class="chart__bar chart__bar--revenue" style="--h:70%"></span><span class="chart__bar chart__bar--users" style="--h:55%"></span><span class="chart__bar chart__bar--sessions" style="--h:46%"></span><span class="chart__bar chart__bar--revenue" style="--h:90%"></span><span class="chart__bar chart__bar--users" style="--h:68%"></span><span class="chart__bar chart__bar--sessions" style="--h:58%"></span>
+            </div>
+            <div class="chart__axis" aria-hidden="true"><span>Jun</span><span>Jul</span><span>Aug</span><span>Sep</span></div>
+          </article>
+          <div class="bento__side">
+            <article class="panel reveal"><h3>Events by type</h3><ul class="bars"><li><span>PageView</span><i style="--w:92%"></i><b>24.1k</b></li><li><span>ButtonClick</span><i style="--w:71%"></i><b>18.6k</b></li><li><span>Purchase</span><i style="--w:44%"></i><b>11.5k</b></li><li><span>UserSignup</span><i style="--w:33%"></i><b>8.7k</b></li><li><span>Form Submit</span><i style="--w:21%"></i><b>5.4k</b></li></ul></article>
+            <article class="quote quote--compact reveal"><p>“Finally, analytics that doesn't feel like homework.”</p><footer><span class="quote__avatar" aria-hidden="true">SC</span><cite><strong>Sarah Chen</strong><span>CEO at Bloom</span></cite></footer></article>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ PRICING ============ -->
+    <section class="section section--dark" id="pricing" aria-labelledby="pricing-title">
+      <div class="container container--narrow">
+        <p class="section__eyebrow section__eyebrow--light">Simple, honest pricing</p>
+        <h2 class="section__title section__title--xl section__title--light" id="pricing-title">Grow at your own pace.</h2>
+        <div class="billing" role="group" aria-label="Billing period">
+          <button class="billing__btn is-active" type="button" data-billing="monthly" aria-pressed="true">Monthly</button>
+          <button class="billing__btn" type="button" data-billing="yearly" aria-pressed="false">Yearly <span class="billing__save">2 months free</span></button>
+        </div>
+        <div class="grid grid--2 pricing">
+          <article class="plan reveal"><h3>Starter</h3><p class="plan__price"><span class="plan__amount" data-monthly="19" data-yearly="190">$19</span><span class="plan__period" data-monthly="/month" data-yearly="/year">/month</span></p><p class="plan__note">$0.00 due today.</p><ul class="plan__list"><li>100k monthly visitors</li><li>1 website</li><li>2 team members</li><li>3 years retention</li><li>Advanced reports</li></ul><a class="btn btn--outline" href="https://garden-insights.lovable.app/signup">Start 14-day trial</a></article>
+          <article class="plan plan--featured reveal"><p class="plan__badge">Most popular</p><h3>Growth</h3><p class="plan__price"><span class="plan__amount" data-monthly="39" data-yearly="390">$39</span><span class="plan__period" data-monthly="/month" data-yearly="/year">/month</span></p><p class="plan__note">$0.00 due today.</p><ul class="plan__list"><li>100k monthly visitors</li><li>30 websites</li><li>5 team members</li><li>5+ years retention</li><li>Advanced reports</li></ul><a class="btn btn--primary" href="https://garden-insights.lovable.app/signup">Start 14-day trial</a></article>
+        </div>
+        <section class="cta reveal" aria-labelledby="cta-title"><h2 id="cta-title">Ready to watch your insights bloom?</h2><p>Join thousands of teams who've made their data beautiful.</p><a class="btn btn--light btn--lg" href="https://garden-insights.lovable.app/signup">Start growing — it's free</a></section>
+      </div>
+      <footer class="site-footer"><div class="container site-footer__bar"><p><span class="brand__name">Meadow</span> · Forged with steel &amp; light</p><nav aria-label="Footer"><a href="#film">Film</a><a href="#craft">Craft</a><a href="#pricing">Pricing</a><a href="https://garden-insights.lovable.app/login">Sign in</a></nav><p class="site-footer__copy">© <span id="year">2026</span> Meadow</p></div></footer>
+    </section>
+  </main>
+
+  <noscript><div class="noscript">This experience needs JavaScript for scroll-scrubbed video and the 3D hero. The copy above remains fully readable.</div></noscript>
+  <script src="assets/js/main.js?v=8" defer></script>
+</body>
+</html>

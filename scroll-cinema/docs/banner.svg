@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640" width="1280" height="640" role="img" aria-label="Scroll-Cinema — scroll-driven 3D and video websites">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0a0d11"/>
+      <stop offset="1" stop-color="#141d27"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.62" cy="0.42" r="0.62">
+      <stop offset="0" stop-color="#2997ff" stop-opacity=".30"/>
+      <stop offset="1" stop-color="#2997ff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glow2" cx="0.2" cy="0.85" r="0.5">
+      <stop offset="0" stop-color="#e8853a" stop-opacity=".18"/>
+      <stop offset="1" stop-color="#e8853a" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="title" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#f5f5f7"/>
+      <stop offset="0.55" stop-color="#a8c7fa"/>
+      <stop offset="1" stop-color="#2997ff"/>
+    </linearGradient>
+    <linearGradient id="edge" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#8fd0ff" stop-opacity=".95"/>
+      <stop offset="1" stop-color="#e8853a" stop-opacity=".95"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1280" height="640" fill="url(#bg)"/>
+  <rect width="1280" height="640" fill="url(#glow)"/>
+  <rect width="1280" height="640" fill="url(#glow2)"/>
+
+  <!-- film strip of scrubbed frames -->
+  <g opacity="0.5" transform="translate(720,150)">
+    <rect x="0" y="0" width="470" height="120" rx="14" fill="#0d141c" stroke="#2b3b4d"/>
+    <g fill="#1b2836">
+      <rect x="14" y="14" width="66" height="92" rx="8"/>
+      <rect x="92" y="14" width="66" height="92" rx="8"/>
+      <rect x="170" y="14" width="66" height="92" rx="8"/>
+      <rect x="248" y="14" width="66" height="92" rx="8"/>
+      <rect x="326" y="14" width="66" height="92" rx="8"/>
+      <rect x="404" y="14" width="52" height="92" rx="8"/>
+    </g>
+    <!-- playhead -->
+    <rect x="170" y="6" width="4" height="108" rx="2" fill="#2997ff"/>
+  </g>
+
+  <!-- isometric wireframe cube (the 3D hero) -->
+  <g transform="translate(915,392)">
+    <g fill="none" stroke="url(#edge)" stroke-width="2.4" stroke-linejoin="round">
+      <path d="M0 -84 L97 -33 L97 63 L0 114 L-97 63 L-97 -33 Z"/>
+      <path d="M0 -84 L0 12 M0 12 L97 -33 M0 12 L-97 -33"/>
+      <path d="M0 12 L0 114"/>
+      <path d="M-97 63 L0 12 M97 63 L0 12"/>
+      <path d="M0 12 L0 -84" opacity="0.5"/>
+    </g>
+    <g fill="#2997ff" opacity="0.10">
+      <path d="M0 -84 L97 -33 L97 63 L0 114 L-97 63 L-97 -33 Z"/>
+    </g>
+  </g>
+
+  <!-- copy -->
+  <g font-family="Segoe UI, Helvetica, Arial, sans-serif">
+    <text x="80" y="150" fill="#8fa3b8" font-size="22" letter-spacing="6" font-weight="600">SCROLL-DRIVEN · 3D · VIDEO</text>
+    <text x="80" y="300" fill="url(#title)" font-size="104" font-weight="800" letter-spacing="-3">Scroll-Cinema</text>
+    <text x="80" y="366" fill="#c8d3e0" font-size="30" font-weight="400">A 3D animated website creator.</text>
+    <text x="80" y="410" fill="#7f8ea0" font-size="24" font-weight="400">Scrub a video with scroll · Blender/Three.js hero · big type</text>
+
+    <!-- feature chips -->
+    <g font-size="19" font-weight="600">
+      <rect x="80" y="452" width="196" height="46" rx="23" fill="#111a24" stroke="#2b3b4d"/>
+      <text x="104" y="482" fill="#a8c7fa">GSAP ScrollTrigger</text>
+      <rect x="292" y="452" width="150" height="46" rx="23" fill="#111a24" stroke="#2b3b4d"/>
+      <text x="316" y="482" fill="#a8c7fa">Three.js</text>
+      <rect x="458" y="452" width="168" height="46" rx="23" fill="#111a24" stroke="#2b3b4d"/>
+      <text x="482" y="482" fill="#a8c7fa">Blender → glTF</text>
+    </g>
+  </g>
+
+  <!-- scroll progress bar -->
+  <rect x="80" y="548" width="1120" height="6" rx="3" fill="#1b2836"/>
+  <rect x="80" y="548" width="470" height="6" rx="3" fill="url(#title)"/>
+</svg>
