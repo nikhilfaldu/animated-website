@@ -1,0 +1,337 @@
+/* Index · shop chapters: configure, numbers, editions, reserve. */
+
+/* ---------- Configure ---------- */
+.configure__inner {
+  min-height: 100svh;
+  align-items: center;
+  padding-block: calc(var(--nav-h) + 4vh) 8vh;
+}
+.configure__figure {
+  grid-column: 1 / span 6;
+  align-self: stretch;
+  display: grid;
+  place-items: center;
+}
+.configure__poster {
+  width: min(100%, 34rem);
+  aspect-ratio: 4 / 5;
+  object-fit: contain;
+  background: transparent;
+}
+.configure__panel {
+  grid-column: 8 / span 5;
+  display: grid;
+  gap: 1.5rem;
+  position: relative;
+}
+.configure__panel .config {
+  display: grid;
+  gap: 1.75rem;
+}
+.config__summary {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--line);
+}
+.config__name {
+  display: grid;
+  gap: 0.35rem;
+}
+.config__edition {
+  font-family: var(--font-display);
+  font-size: clamp(1.5rem, 1.1rem + 1vw, 2.1rem);
+  line-height: 1.1;
+}
+.config__desc {
+  color: var(--bone-3);
+}
+.config__price {
+  font-size: clamp(2rem, 1.3rem + 2vw, 3.4rem);
+  line-height: 1;
+  color: var(--gold-hi);
+  white-space: nowrap;
+}
+.config__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem 1.75rem;
+}
+.config__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+/* ---------- Numbers ---------- */
+.numbers__inner {
+  padding-block: var(--section-y);
+  display: grid;
+  gap: clamp(2.5rem, 5vw, 5rem);
+}
+.numbers__head {
+  display: grid;
+  gap: 1rem;
+  max-width: 40rem;
+}
+.numbers__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-top: 1px solid var(--line);
+}
+.stat {
+  display: grid;
+  align-content: start;
+  gap: 0.6rem;
+  padding: clamp(1.25rem, 2.5vw, 2.5rem) clamp(1rem, 2vw, 2rem) clamp(1.75rem, 3vw, 3rem);
+  border-bottom: 1px solid var(--line);
+}
+.stat:not(:nth-child(3n + 1)) {
+  border-left: 1px solid var(--line);
+}
+.stat__label {
+  order: 2;
+  color: var(--gold);
+}
+.stat__value {
+  order: 1;
+  font-family: var(--font-display);
+  font-size: clamp(3.6rem, 1.8rem + 6vw, 8.5rem);
+  line-height: 0.95;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.stat__caption {
+  order: 3;
+  color: var(--bone-2);
+  font-size: 0.95rem;
+  max-width: 18rem;
+}
+
+/* ---------- Editions ---------- */
+.editions__pin {
+  min-height: 100svh;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  padding-block: calc(var(--nav-h) + 2vh) 6vh;
+}
+.editions__track {
+  display: flex;
+  align-items: stretch;
+  gap: clamp(1rem, 2vw, 2rem);
+  padding-inline: var(--gutter);
+  width: max-content;
+}
+.editions.is-pinned .editions__track {
+  will-change: transform;
+}
+.editions__intro {
+  width: min(30rem, 34vw);
+  display: grid;
+  align-content: center;
+  gap: 1.25rem;
+  padding-right: clamp(1rem, 3vw, 3rem);
+}
+.editions__lead {
+  color: var(--bone-2);
+  max-width: 24rem;
+}
+
+.edition-card {
+  --mx: 50%;
+  --my: 40%;
+  position: relative;
+  width: clamp(17rem, 24vw, 25rem);
+  display: grid;
+  grid-template-rows: auto 1fr;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-l);
+  background: var(--ink-1);
+  overflow: hidden;
+  text-decoration: none;
+  isolation: isolate;
+  transition: border-color var(--dur-hover) ease;
+}
+.edition-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background: radial-gradient(28rem circle at var(--mx) var(--my), rgb(232 211 166 / 0.12), transparent 55%);
+  opacity: 0;
+  transition: opacity 300ms var(--ease-out);
+}
+.edition-card__media {
+  position: relative;
+  aspect-ratio: 4 / 5;
+  overflow: hidden;
+  background: radial-gradient(70% 60% at 50% 45%, var(--ink-3), var(--ink-1) 75%);
+}
+.edition-card__img {
+  width: 112%;
+  max-width: none;
+  height: 100%;
+  margin-left: -6%;
+  object-fit: contain;
+  background: transparent;
+  transition: scale 500ms var(--ease-out);
+}
+.edition-card__body {
+  display: grid;
+  gap: 0.35rem;
+  align-content: start;
+  padding: 1.25rem 1.4rem 1.5rem;
+}
+.edition-card__index {
+  color: var(--gold);
+}
+.edition-card__name {
+  font-size: clamp(1.6rem, 1.2rem + 1vw, 2.2rem);
+  line-height: 1.1;
+}
+.edition-card__tagline {
+  color: var(--bone-2);
+}
+.edition-card__meta {
+  margin-top: 0.6rem;
+  color: var(--bone-3);
+}
+.edition-card--cta {
+  align-content: end;
+  grid-template-rows: 1fr;
+  background: linear-gradient(160deg, var(--ink-2), var(--ink-0));
+  min-height: 26rem;
+}
+.edition-card--cta .edition-card__body {
+  padding: 2rem 1.75rem;
+}
+.edition-card--cta .edition-card__meta {
+  color: var(--gold);
+}
+.edition-card:focus-visible {
+  outline-offset: 4px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .edition-card:hover {
+    border-color: var(--line-strong);
+  }
+  .edition-card:hover::before {
+    opacity: 1;
+  }
+  .edition-card:hover .edition-card__img {
+    scale: 1.04;
+  }
+}
+
+/* Touch, narrow screens and reduced motion: a native snapping scroller. */
+.editions:not(.is-pinned) .editions__pin {
+  display: block;
+  overflow: visible;
+}
+.editions:not(.is-pinned) .editions__track {
+  width: auto;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline: var(--gutter);
+  padding-bottom: 1.5rem;
+  scrollbar-color: var(--line-strong) transparent;
+}
+.editions:not(.is-pinned) .edition-card,
+.editions:not(.is-pinned) .editions__intro {
+  scroll-snap-align: start;
+  flex: none;
+}
+
+/* ---------- Reserve ---------- */
+.reserve__inner {
+  min-height: 92svh;
+  align-items: center;
+  row-gap: 3rem;
+  padding-block: var(--section-y);
+}
+.reserve__copy {
+  grid-column: 1 / span 6;
+  display: grid;
+  gap: 1.5rem;
+}
+.reserve__config {
+  color: var(--bone-3);
+}
+.reserve__config span {
+  color: var(--bone);
+}
+.reserve__action {
+  grid-column: 1 / span 6;
+  display: grid;
+  justify-items: start;
+  gap: 1.1rem;
+}
+html:not(.has-webgl) .reserve__action {
+  grid-column: 8 / span 5;
+  grid-row: 1;
+  justify-items: center;
+  text-align: center;
+}
+.reserve__help {
+  color: var(--bone-3);
+  font-size: 0.92rem;
+}
+
+/* ---------- Tablet & phone ---------- */
+@media (max-width: 1023px) {
+  .configure__panel {
+    grid-column: 7 / -1;
+  }
+  .numbers__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .stat:not(:nth-child(3n + 1)) {
+    border-left: 0;
+  }
+  .stat:nth-child(2n) {
+    border-left: 1px solid var(--line);
+  }
+}
+
+@media (max-width: 767px) {
+  .configure__figure,
+  .configure__panel {
+    grid-column: 1 / -1;
+  }
+  .has-webgl .configure__figure {
+    min-height: 52svh;
+  }
+  .has-webgl .configure__poster {
+    display: none;
+  }
+  .config__summary {
+    flex-wrap: wrap;
+  }
+  .editions__intro {
+    width: min(82vw, 26rem);
+  }
+  .edition-card {
+    width: min(78vw, 22rem);
+  }
+  .reserve__copy,
+  .reserve__action,
+  html:not(.has-webgl) .reserve__action {
+    grid-column: 1 / -1;
+    grid-row: auto;
+  }
+}
+
+@media (max-width: 559px) {
+  .numbers__grid {
+    grid-template-columns: 1fr;
+  }
+  .stat:nth-child(2n) {
+    border-left: 0;
+  }
+}

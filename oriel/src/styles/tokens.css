@@ -1,0 +1,72 @@
+/* ORIEL design tokens. See docs/DIRECTION.md. */
+:root {
+  color-scheme: dark;
+
+  /* Colour */
+  --ink-0: #0a0908;
+  --ink-1: #11100e;
+  --ink-2: #1a1815;
+  --ink-3: #26231f;
+  --bone: #ede6da;
+  --bone-2: #b8b0a3;
+  --bone-3: #867f74;
+  --gold: #cdb07a;
+  --gold-hi: #e8d3a6;
+  --gold-lo: #8f7849;
+  --line: rgb(237 230 218 / 0.12);
+  --line-strong: rgb(237 230 218 / 0.24);
+  --danger: #e2735a;
+  --ok: #a9c9a4;
+  --focus: var(--gold-hi);
+
+  /* Type */
+  --font-display: 'Instrument Serif', 'Iowan Old Style', 'Times New Roman', serif;
+  --font-sans: 'Hanken Grotesk Variable', 'Hanken Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'DM Mono', ui-monospace, 'SFMono-Regular', Consolas, monospace;
+
+  --step--2: clamp(0.7rem, 0.68rem + 0.08vw, 0.75rem);
+  --step--1: clamp(0.78rem, 0.76rem + 0.1vw, 0.84rem);
+  --step-0: clamp(1rem, 0.96rem + 0.2vw, 1.125rem);
+  --step-1: clamp(1.2rem, 1.08rem + 0.55vw, 1.55rem);
+  --step-2: clamp(1.75rem, 1.35rem + 1.8vw, 3rem);
+  --step-3: clamp(2.6rem, 1.7rem + 4vw, 5.75rem);
+  --step-4: clamp(3.5rem, 1.6rem + 8.4vw, 11rem);
+  --step-5: clamp(5.5rem, 0.5rem + 24vw, 30rem);
+
+  --leading-tight: 0.92;
+  --leading-snug: 1.12;
+  --leading-body: 1.55;
+  --tracking-mono: 0.08em;
+
+  /* Space & layout */
+  --gutter: clamp(16px, 4vw, 64px);
+  --col-gap: clamp(12px, 2vw, 32px);
+  --section-y: clamp(96px, 14vw, 220px);
+  --nav-h: clamp(64px, 7vw, 84px);
+  --measure: 34rem;
+  --radius-s: 6px;
+  --radius-m: 14px;
+  --radius-l: 28px;
+  --radius-pill: 999px;
+
+  /* Motion (docs/DIRECTION.md §2) */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+  --dur-press: 140ms;
+  --dur-hover: 200ms;
+  --dur-ui: 240ms;
+  --dur-drawer: 420ms;
+
+  /* Layers */
+  --z-canvas: 0;
+  --z-content: 1;
+  --z-overlay: 2;
+  --z-chapter: 40;
+  --z-nav: 50;
+  --z-cursor: 90;
+  --z-toast: 95;
+  --z-drawer: 100;
+  --z-curtain: 200;
+  --z-preloader: 300;
+}

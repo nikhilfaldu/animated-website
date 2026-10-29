@@ -1,0 +1,591 @@
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>ORIEL — Time, taken apart · Calibre O-1</title>
+    <meta
+      name="description"
+      content="ORIEL is a concept watchmaker. Scroll to take the Calibre O-1 apart, seven layers and 212 components, then build your own in steel, rose gold or black ceramic."
+    />
+    <meta name="theme-color" content="#0a0908" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="ORIEL — Time, taken apart" />
+    <meta property="og:description" content="A concept watch story told with GSAP and Three.js, by Ayoub Benkreira." />
+    <meta property="og:image" content="/media/og.jpg" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <script>
+      (function () {
+        var d = document.documentElement;
+        d.classList.remove('no-js');
+        d.classList.add('js');
+        try {
+          if (sessionStorage.getItem('oriel:arriving')) d.classList.add('is-arriving');
+          if (sessionStorage.getItem('oriel:visited')) d.classList.add('is-returning');
+        } catch (e) {}
+      })();
+    </script>
+    <script type="module" src="/src/main.js"></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    <div class="preloader" aria-hidden="true" data-preloader>
+      <div class="preloader__dial" data-preloader-dial></div>
+      <p class="preloader__count mono"><span data-preloader-count>000</span></p>
+      <p class="preloader__brand mono">ORIEL · Calibre O-1</p>
+    </div>
+    <div class="curtain" aria-hidden="true" data-curtain></div>
+
+    <canvas class="stage" id="stage" aria-hidden="true"></canvas>
+
+    <header class="nav" data-nav>
+      <div class="nav__inner container">
+        <a class="nav__brand" href="/" aria-label="ORIEL, home">
+          <svg class="nav__mark" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+            <circle cx="16" cy="16" r="13" fill="none" stroke="currentColor" stroke-width="1.5" />
+            <path d="M16 3v6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+            <circle cx="16" cy="16" r="2" fill="currentColor" />
+          </svg>
+          <span class="nav__word">ORIEL</span>
+        </a>
+        <nav class="nav__primary" aria-label="Primary">
+          <ul class="nav__links" role="list">
+            <li><a class="nav__link" href="#story">Story</a></li>
+            <li><a class="nav__link" href="#anatomy">Anatomy</a></li>
+            <li><a class="nav__link" href="#movement">Movement</a></li>
+            <li><a class="nav__link" href="#configure">Configure</a></li>
+            <li><a class="nav__link" href="#editions">Editions</a></li>
+          </ul>
+        </nav>
+        <div class="nav__actions">
+          <button class="nav__bag" type="button" data-bag-open aria-haspopup="dialog" aria-controls="bag">
+            <span class="nav__bag-icon"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"><path stroke-linejoin="round" d="M9 9H9.0001"/><path stroke-linejoin="round" d="M15 9H15.0001"/><path d="M3.79424 12.0291C4.33141 9.34329 4.59999 8.00036 5.48746 7.13543C5.65149 6.97557 5.82894 6.8301 6.01786 6.70061C7.04004 6 8.40956 6 11.1486 6H12.8515C15.5906 6 16.9601 6 17.9823 6.70061C18.1712 6.8301 18.3486 6.97557 18.5127 7.13543C19.4001 8.00036 19.6687 9.34329 20.2059 12.0291C20.9771 15.8851 21.3627 17.8131 20.475 19.1793C20.3143 19.4267 20.1267 19.6555 19.9157 19.8616C18.7501 21 16.7839 21 12.8515 21H11.1486C7.21622 21 5.25004 21 4.08447 19.8616C3.87342 19.6555 3.68582 19.4267 3.5251 19.1793C2.63744 17.8131 3.02304 15.8851 3.79424 12.0291Z"/><path d="M9 6.01973V5C9 3.34315 10.3431 2 12 2C13.6569 2 15 3.34315 15 5V6.01973"/></g></svg></span>
+            <span class="nav__bag-text">Bag</span>
+            <span class="nav__bag-count" data-bag-count aria-hidden="true">0</span>
+            <span class="sr-only" data-bag-count-label>, empty</span>
+          </button>
+          <a class="btn btn--primary btn--sm nav__cta" href="#reserve">
+            <span class="btn__fill" aria-hidden="true"></span>
+            <span class="btn__label" data-text="Reserve">Reserve</span>
+          </a>
+          <button class="nav__menu-btn" type="button" aria-haspopup="dialog" aria-controls="menu" aria-expanded="false" data-menu-open>
+            <span class="nav__menu-text">Menu</span>
+            <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"><path d="M20 7L4 7"/><path d="M20 12L4 12"/><path d="M20 17L4 17"/></g></svg>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <div class="page">
+      <main id="main" tabindex="-1">
+        <!-- 01 — Hero -->
+        <section class="hero" id="top" data-chapter="Calibre O-1" aria-labelledby="hero-title">
+          <div class="hero__inner container grid">
+            <div class="hero__copy">
+              <p class="mark hero__mark"><span class="mark__num">Calibre O-1</span><span class="mark__name">Automatic · 40 mm</span></p>
+              <h1 class="hero__title display" id="hero-title" data-hero-title>Time, <em>taken apart.</em></h1>
+              <p class="hero__lead lead" data-hero-lead>
+                Two hundred and twelve components, one watchmaker and seventy-two hours of stored time. Scroll, and we'll show you every
+                piece.
+              </p>
+              <div class="hero__actions" data-hero-actions>
+                <a class="btn btn--primary" href="#anatomy" data-magnetic>
+                  <span class="btn__fill" aria-hidden="true"></span>
+                  <span class="btn__label" data-text="Take it apart">Take it apart</span>
+                  <span class="btn__icon"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 4L12 20M6 14L12 20L18 14"/></svg></span>
+                </a>
+                <a class="btn btn--ghost" href="#reserve" data-magnetic>
+                  <span class="btn__fill" aria-hidden="true"></span>
+                  <span class="btn__label" data-text="Reserve, 300 pieces">Reserve, 300 pieces</span>
+                </a>
+              </div>
+            </div>
+            <figure class="hero__figure">
+              <img
+                class="hero__poster"
+                src="/media/hero.webp"
+                width="1600"
+                height="1600"
+                alt="The ORIEL Calibre O-1 in steel with a midnight-blue sunburst dial, floating in a dark studio."
+                fetchpriority="high"
+                decoding="async"
+              />
+            </figure>
+          </div>
+          <div class="hero__meta container">
+            <p class="hero__time mono" data-local-time-wrap>
+              <span class="hero__time-label">Your time</span>
+              <time class="hero__time-value" data-local-time>--:--:--</time>
+              <span class="hero__time-zone" data-local-zone></span>
+            </p>
+            <p class="hero__cue mono" aria-hidden="true">Scroll to disassemble <span class="hero__cue-line"></span></p>
+          </div>
+        </section>
+
+        <!-- 02 — Manifesto -->
+        <section class="manifesto" id="story" data-chapter="The idea" aria-labelledby="story-title">
+          <div class="manifesto__inner container grid">
+            <p class="mark manifesto__mark"><span class="mark__num">§ 01</span><span class="mark__name">The idea</span></p>
+            <h2 class="sr-only" id="story-title">The idea</h2>
+            <p class="manifesto__text display" data-manifesto>
+              The Greeks had two words for time. <em>Chronos,</em> the time that passes, and <em>kairos,</em> the moment that matters.
+              We spend eleven months building one watch so it can keep the first, and mark the second.
+            </p>
+            <p class="manifesto__aside">
+              Every O-1 is assembled, regulated and cased by a single watchmaker, who engraves their initials on the movement before it
+              leaves the bench.
+            </p>
+          </div>
+        </section>
+
+        <!-- 03 — Anatomy (exploded view) -->
+        <section class="anatomy" id="anatomy" data-chapter="Anatomy" aria-labelledby="anatomy-title">
+          <div class="anatomy__pin container grid" data-anatomy-pin>
+            <header class="anatomy__head">
+              <p class="mark"><span class="mark__num">§ 02</span><span class="mark__name">Anatomy</span></p>
+              <h2 class="anatomy__title display" id="anatomy-title">Seven layers between you and <em>the second.</em></h2>
+            </header>
+            <ol class="anatomy__list" role="list" data-layers>
+              <li class="layer" data-layer="crystal">
+                <span class="layer__index mono">01</span>
+                <h3 class="layer__name">Sapphire crystal</h3>
+                <p class="layer__note">Domed and anti-reflective on both sides. Nine on the Mohs scale.</p>
+              </li>
+              <li class="layer" data-layer="bezel">
+                <span class="layer__index mono">02</span>
+                <h3 class="layer__name">Bezel</h3>
+                <p class="layer__note">Polished, with a 0.3 mm step that catches a single line of light.</p>
+              </li>
+              <li class="layer" data-layer="hands">
+                <span class="layer__index mono">03</span>
+                <h3 class="layer__name">Hands</h3>
+                <p class="layer__note">Dauphine, faceted by hand, filled with luminescent paint.</p>
+              </li>
+              <li class="layer" data-layer="dial">
+                <span class="layer__index mono">04</span>
+                <h3 class="layer__name">Dial</h3>
+                <p class="layer__note">Brass, fourteen coats of lacquer, twelve applied indices.</p>
+              </li>
+              <li class="layer" data-layer="movement">
+                <span class="layer__index mono">05</span>
+                <h3 class="layer__name">Movement</h3>
+                <p class="layer__note">Calibre O-1. 212 components, 31 jewels, regulated in five positions.</p>
+              </li>
+              <li class="layer" data-layer="case">
+                <span class="layer__index mono">06</span>
+                <h3 class="layer__name">Case</h3>
+                <p class="layer__note">40 mm across, 11.2 mm thick. Satin flanks, polished bevels.</p>
+              </li>
+              <li class="layer" data-layer="caseback">
+                <span class="layer__index mono">07</span>
+                <h3 class="layer__name">Caseback</h3>
+                <p class="layer__note">Screwed down around a sapphire window. Water resistant to 100 m.</p>
+              </li>
+            </ol>
+            <figure class="anatomy__figure">
+              <img
+                class="anatomy__poster"
+                src="/media/exploded.webp"
+                width="1600"
+                height="1600"
+                alt="Exploded view of the Calibre O-1: crystal, bezel, hands, dial, movement, case and caseback separated along one axis."
+                loading="lazy"
+                decoding="async"
+              />
+            </figure>
+            <svg class="anatomy__leaders" aria-hidden="true" focusable="false" data-leaders></svg>
+          </div>
+        </section>
+
+        <!-- 04 — Movement -->
+        <section class="movement" id="movement" data-chapter="Movement" aria-labelledby="movement-title">
+          <div class="movement__pin container grid" data-movement-pin>
+            <header class="movement__head">
+              <p class="mark"><span class="mark__num">§ 03</span><span class="mark__name">The movement</span></p>
+              <h2 class="movement__title display" id="movement-title">Inside, a small universe <em>keeps time.</em></h2>
+            </header>
+            <div class="movement__chapters" data-movement-chapters>
+              <article class="chapter" data-focus="escapement" aria-labelledby="chapter-escapement">
+                <p class="chapter__index mono">i / iii</p>
+                <h3 class="chapter__title" id="chapter-escapement">The escapement</h3>
+                <p class="chapter__body">
+                  Twenty-eight thousand eight hundred times an hour, the pallet fork lets one tooth of the escape wheel go. You hear it as a
+                  tick. We hear a heartbeat.
+                </p>
+                <p class="chapter__stat"><span class="chapter__stat-value display">28,800</span><span class="chapter__stat-unit mono">beats per hour</span></p>
+              </article>
+              <article class="chapter" data-focus="barrel" aria-labelledby="chapter-barrel">
+                <p class="chapter__index mono">ii / iii</p>
+                <h3 class="chapter__title" id="chapter-barrel">The mainspring</h3>
+                <p class="chapter__body">
+                  A coiled blade inside the barrel stores the energy of your wrist. Fully wound, it runs for three days, long enough to
+                  leave on the nightstand for a weekend.
+                </p>
+                <p class="chapter__stat"><span class="chapter__stat-value display">72</span><span class="chapter__stat-unit mono">hours of reserve</span></p>
+              </article>
+              <article class="chapter" data-focus="rotor" aria-labelledby="chapter-rotor">
+                <p class="chapter__index mono">iii / iii</p>
+                <h3 class="chapter__title" id="chapter-rotor">The rotor</h3>
+                <p class="chapter__body">
+                  A half-moon of solid gold swings with every gesture and winds the spring in both directions. Movement, turned into time.
+                </p>
+                <p class="chapter__stat"><span class="chapter__stat-value display">360°</span><span class="chapter__stat-unit mono">bidirectional winding</span></p>
+              </article>
+            </div>
+            <ol class="movement__progress" role="list" aria-hidden="true" data-movement-progress>
+              <li class="movement__tick"></li>
+              <li class="movement__tick"></li>
+              <li class="movement__tick"></li>
+            </ol>
+            <figure class="movement__figure">
+              <img
+                class="movement__poster"
+                src="/media/movement.webp"
+                width="1600"
+                height="1600"
+                alt="Close view of the Calibre O-1 movement: the gold rotor, blued screws, ruby jewels and the balance wheel."
+                loading="lazy"
+                decoding="async"
+              />
+            </figure>
+          </div>
+        </section>
+
+        <!-- 05 — Configure -->
+        <section class="configure" id="configure" data-chapter="Configure" aria-labelledby="configure-title">
+          <div class="configure__inner container grid">
+            <figure class="configure__figure">
+              <img
+                class="configure__poster"
+                data-config-poster
+                src="/media/config-steel-midnight.webp"
+                width="1200"
+                height="1500"
+                alt="Calibre O-1 in steel with a midnight dial."
+                loading="lazy"
+                decoding="async"
+              />
+            </figure>
+            <div class="configure__panel">
+              <p class="mark"><span class="mark__num">§ 04</span><span class="mark__name">Make it yours</span></p>
+              <h2 class="configure__title display" id="configure-title">Choose your metal. <em>Choose your night.</em></h2>
+              <form class="config" action="/product.html" method="get" data-configurator aria-describedby="configure-summary">
+                <fieldset class="config__group">
+                  <legend class="config__legend mono">Case</legend>
+                  <div class="config__options">
+                    <label class="chip">
+                      <input class="chip__input" type="radio" name="finish" value="steel" checked />
+                      <span class="chip__swatch" style="--swatch: #b9bcc0" aria-hidden="true"></span>
+                      <span class="chip__text"><span class="chip__name">Steel</span><span class="chip__meta mono">904L · €8,400</span></span>
+                    </label>
+                    <label class="chip">
+                      <input class="chip__input" type="radio" name="finish" value="rosegold" />
+                      <span class="chip__swatch" style="--swatch: #d6a58c" aria-hidden="true"></span>
+                      <span class="chip__text"><span class="chip__name">Rose gold</span><span class="chip__meta mono">18k · €24,800</span></span>
+                    </label>
+                    <label class="chip">
+                      <input class="chip__input" type="radio" name="finish" value="ceramic" />
+                      <span class="chip__swatch" style="--swatch: #232325" aria-hidden="true"></span>
+                      <span class="chip__text"><span class="chip__name">Black ceramic</span><span class="chip__meta mono">ZrO₂ · €12,600</span></span>
+                    </label>
+                  </div>
+                </fieldset>
+                <fieldset class="config__group">
+                  <legend class="config__legend mono">Dial</legend>
+                  <div class="config__options">
+                    <label class="chip chip--dial">
+                      <input class="chip__input" type="radio" name="dial" value="midnight" checked />
+                      <span class="chip__swatch" style="--swatch: #1a2a4a" aria-hidden="true"></span>
+                      <span class="chip__text"><span class="chip__name">Midnight</span><span class="chip__meta mono">Blue sunburst</span></span>
+                    </label>
+                    <label class="chip chip--dial">
+                      <input class="chip__input" type="radio" name="dial" value="ivory" />
+                      <span class="chip__swatch" style="--swatch: #ece2cc" aria-hidden="true"></span>
+                      <span class="chip__text"><span class="chip__name">Ivory</span><span class="chip__meta mono">Grained cream</span></span>
+                    </label>
+                    <label class="chip chip--dial">
+                      <input class="chip__input" type="radio" name="dial" value="malachite" />
+                      <span class="chip__swatch" style="--swatch: #1f4d3a" aria-hidden="true"></span>
+                      <span class="chip__text"><span class="chip__name">Malachite</span><span class="chip__meta mono">Green sunburst</span></span>
+                    </label>
+                  </div>
+                </fieldset>
+                <div class="config__summary" id="configure-summary">
+                  <p class="config__name">
+                    <span class="config__edition" data-config-name>Édition Minuit</span>
+                    <span class="config__desc mono" data-config-desc>Steel · Midnight dial</span>
+                  </p>
+                  <p class="config__price display" data-config-price>€8,400</p>
+                </div>
+                <div class="config__actions">
+                  <button class="btn btn--primary" type="submit" data-magnetic data-config-add>
+                    <span class="btn__fill" aria-hidden="true"></span>
+                    <span class="btn__label" data-text="Add to bag">Add to bag</span>
+                    <span class="btn__icon"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"><path stroke-linejoin="round" d="M9 9H9.0001"/><path stroke-linejoin="round" d="M15 9H15.0001"/><path d="M3.79424 12.0291C4.33141 9.34329 4.59999 8.00036 5.48746 7.13543C5.65149 6.97557 5.82894 6.8301 6.01786 6.70061C7.04004 6 8.40956 6 11.1486 6H12.8515C15.5906 6 16.9601 6 17.9823 6.70061C18.1712 6.8301 18.3486 6.97557 18.5127 7.13543C19.4001 8.00036 19.6687 9.34329 20.2059 12.0291C20.9771 15.8851 21.3627 17.8131 20.475 19.1793C20.3143 19.4267 20.1267 19.6555 19.9157 19.8616C18.7501 21 16.7839 21 12.8515 21H11.1486C7.21622 21 5.25004 21 4.08447 19.8616C3.87342 19.6555 3.68582 19.4267 3.5251 19.1793C2.63744 17.8131 3.02304 15.8851 3.79424 12.0291Z"/><path d="M9 6.01973V5C9 3.34315 10.3431 2 12 2C13.6569 2 15 3.34315 15 5V6.01973"/></g></svg></span>
+                  </button>
+                  <a class="link config__link" href="/product.html?edition=minuit" data-config-link>
+                    View details
+                    <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M6 18L18 6M18 15V6H9"/></svg>
+                  </a>
+                </div>
+              </form>
+            </div>
+          </div>
+        </section>
+
+        <!-- 06 — Numbers -->
+        <section class="numbers" id="numbers" data-chapter="By the numbers" aria-labelledby="numbers-title">
+          <div class="numbers__inner container">
+            <header class="numbers__head">
+              <p class="mark"><span class="mark__num">§ 05</span><span class="mark__name">By the numbers</span></p>
+              <h2 class="numbers__title display" id="numbers-title">Small numbers, <em>slowly made.</em></h2>
+            </header>
+            <dl class="numbers__grid">
+              <div class="stat">
+                <dt class="stat__label mono">Components</dt>
+                <dd class="stat__value display" data-odometer="212">212</dd>
+                <dd class="stat__caption">Every one finished before it is fitted.</dd>
+              </div>
+              <div class="stat">
+                <dt class="stat__label mono">Jewels</dt>
+                <dd class="stat__value display" data-odometer="31">31</dd>
+                <dd class="stat__caption">Synthetic rubies where metal meets metal.</dd>
+              </div>
+              <div class="stat">
+                <dt class="stat__label mono">Hours</dt>
+                <dd class="stat__value display" data-odometer="72">72</dd>
+                <dd class="stat__caption">Of power reserve, fully wound.</dd>
+              </div>
+              <div class="stat">
+                <dt class="stat__label mono">Metres</dt>
+                <dd class="stat__value display" data-odometer="100">100</dd>
+                <dd class="stat__caption">Of water resistance, tested on every piece.</dd>
+              </div>
+              <div class="stat">
+                <dt class="stat__label mono">Months</dt>
+                <dd class="stat__value display" data-odometer="11">11</dd>
+                <dd class="stat__caption">From first part to finished watch.</dd>
+              </div>
+              <div class="stat">
+                <dt class="stat__label mono">Pieces</dt>
+                <dd class="stat__value display" data-odometer="300">300</dd>
+                <dd class="stat__caption">Made each year, each one numbered.</dd>
+              </div>
+            </dl>
+          </div>
+        </section>
+
+        <!-- 07 — Editions -->
+        <section class="editions" id="editions" data-chapter="Editions" aria-labelledby="editions-title">
+          <div class="editions__pin" data-editions-pin>
+            <div class="editions__track" data-editions-track>
+              <header class="editions__intro">
+                <p class="mark"><span class="mark__num">§ 06</span><span class="mark__name">Editions</span></p>
+                <h2 class="editions__title display" id="editions-title">Three editions. <em>Three hundred pieces.</em></h2>
+                <p class="editions__lead">Each edition pairs one metal with one dial. Every piece is numbered on the caseback, and none is made twice.</p>
+              </header>
+              <a class="edition-card" href="/product.html?edition=minuit" data-cursor="view">
+                <figure class="edition-card__media">
+                  <img
+                    class="edition-card__img"
+                    src="/media/config-steel-midnight.webp"
+                    width="1200"
+                    height="1500"
+                    alt="Édition Minuit: steel case, midnight-blue sunburst dial, navy calfskin strap."
+                    loading="lazy"
+                    decoding="async"
+                  />
+                </figure>
+                <div class="edition-card__body">
+                  <span class="edition-card__index mono">01</span>
+                  <h3 class="edition-card__name">Édition Minuit</h3>
+                  <p class="edition-card__tagline">Steel, after dark.</p>
+                  <p class="edition-card__meta mono">Steel · Midnight · €8,400</p>
+                </div>
+              </a>
+              <a class="edition-card" href="/product.html?edition=aube" data-cursor="view">
+                <figure class="edition-card__media">
+                  <img
+                    class="edition-card__img"
+                    src="/media/config-rosegold-ivory.webp"
+                    width="1200"
+                    height="1500"
+                    alt="Édition Aube: 18k rose gold case, grained ivory dial, cognac calfskin strap."
+                    loading="lazy"
+                    decoding="async"
+                  />
+                </figure>
+                <div class="edition-card__body">
+                  <span class="edition-card__index mono">02</span>
+                  <h3 class="edition-card__name">Édition Aube</h3>
+                  <p class="edition-card__tagline">Gold at first light.</p>
+                  <p class="edition-card__meta mono">Rose gold · Ivory · €24,800</p>
+                </div>
+              </a>
+              <a class="edition-card" href="/product.html?edition=foret" data-cursor="view">
+                <figure class="edition-card__media">
+                  <img
+                    class="edition-card__img"
+                    src="/media/config-ceramic-malachite.webp"
+                    width="1200"
+                    height="1500"
+                    alt="Édition Forêt: black ceramic case, deep green sunburst dial, forest calfskin strap."
+                    loading="lazy"
+                    decoding="async"
+                  />
+                </figure>
+                <div class="edition-card__body">
+                  <span class="edition-card__index mono">03</span>
+                  <h3 class="edition-card__name">Édition Forêt</h3>
+                  <p class="edition-card__tagline">Black ceramic, green shade.</p>
+                  <p class="edition-card__meta mono">Black ceramic · Malachite · €12,600</p>
+                </div>
+              </a>
+              <a class="edition-card edition-card--cta" href="#configure">
+                <div class="edition-card__body">
+                  <span class="edition-card__index mono">04</span>
+                  <h3 class="edition-card__name">Made to order</h3>
+                  <p class="edition-card__tagline">Any metal, any dial. Nine combinations, one of yours.</p>
+                  <p class="edition-card__meta mono">Configure your own</p>
+                </div>
+              </a>
+            </div>
+          </div>
+        </section>
+
+        <!-- 08 — Reserve -->
+        <section class="reserve" id="reserve" data-chapter="Reserve" aria-labelledby="reserve-title">
+          <div class="reserve__inner container grid">
+            <div class="reserve__copy">
+              <p class="mark"><span class="mark__num">§ 07</span><span class="mark__name">Reserve</span></p>
+              <h2 class="reserve__title display" id="reserve-title">Hold to reserve <em>your piece.</em></h2>
+              <p class="reserve__lead lead">
+                Reservations are open for deliveries from spring 2027. Hold the button for two seconds and a numbered piece, in the
+                configuration you chose, goes into your bag.
+              </p>
+              <p class="reserve__config mono">Reserving <span data-reserve-config>Steel · Midnight dial · €8,400</span></p>
+            </div>
+            <div class="reserve__action">
+              <button class="hold" type="button" data-hold data-cursor="hold" aria-describedby="hold-help">
+                <svg class="hold__ring" viewBox="0 0 120 120" aria-hidden="true" focusable="false">
+                  <circle class="hold__track" cx="60" cy="60" r="56" />
+                  <circle class="hold__progress" cx="60" cy="60" r="56" pathLength="1" />
+                </svg>
+                <span class="hold__label">Hold to reserve</span>
+              </button>
+              <p class="reserve__help" id="hold-help">Press and hold with a pointer, or hold the Space key.</p>
+              <button class="link reserve__alt" type="button" data-reserve-add>Or add it to your bag without reserving</button>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <footer class="footer" data-footer>
+        <div class="footer__inner container">
+          <div class="footer__top grid">
+            <div class="footer__intro">
+              <h2 class="footer__title display">Letters from <em>the atelier.</em></h2>
+              <p class="footer__text">Four letters a year about how the O-1 is made. No offers, no noise.</p>
+              <form class="newsletter" data-newsletter novalidate>
+                <label class="newsletter__label mono" for="newsletter-email">Email address</label>
+                <div class="newsletter__field">
+                  <input class="newsletter__input" id="newsletter-email" name="email" type="email" autocomplete="email" required aria-describedby="newsletter-msg" />
+                  <button class="btn btn--icon newsletter__submit" type="submit" aria-label="Subscribe">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 12H20M14 18L20 12L14 6"/></svg>
+                  </button>
+                </div>
+                <p class="newsletter__msg" id="newsletter-msg" data-newsletter-msg aria-live="polite"></p>
+              </form>
+            </div>
+            <nav class="footer__nav" aria-label="Footer">
+              <p class="footer__heading mono">Explore</p>
+              <ul class="footer__links" role="list">
+                <li><a class="link" href="#story">The idea</a></li>
+                <li><a class="link" href="#anatomy">Anatomy</a></li>
+                <li><a class="link" href="#movement">Movement</a></li>
+                <li><a class="link" href="#configure">Configure</a></li>
+                <li><a class="link" href="#editions">Editions</a></li>
+                <li><a class="link" href="#reserve">Reserve</a></li>
+              </ul>
+            </nav>
+            <div class="footer__about">
+              <p class="footer__heading mono">About this project</p>
+              <p class="footer__text">
+                ORIEL is a concept by Ayoub Benkreira, a study in storytelling with GSAP and Three.js. It is not a real brand, and
+                nothing here is for sale.
+              </p>
+            </div>
+          </div>
+          <p class="footer__wordmark display" aria-hidden="true" data-wordmark>ORIEL</p>
+          <div class="footer__bottom">
+            <p class="mono">© 2026 · Concept project, designed &amp; developed by Ayoub Benkreira</p>
+            <p class="mono">Watch modelled and rendered in Three.js · Icons: Solar by 480 Design, CC BY 4.0</p>
+            <a class="btn btn--icon footer__top-link" href="#top" aria-label="Back to top">
+              <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 20L12 4M6 10L12 4L18 10"/></svg>
+            </a>
+          </div>
+        </div>
+      </footer>
+    </div>
+
+    <dialog class="menu" id="menu" aria-label="Menu">
+      <div class="menu__inner">
+        <div class="menu__top">
+          <span class="mono">Menu</span>
+          <button class="btn btn--icon" type="button" data-menu-close aria-label="Close menu">
+            <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"><path d="M19.0068 5L5.00684 19"/><path d="M19 19L5 5"/></g></svg>
+          </button>
+        </div>
+        <nav aria-label="Menu">
+          <ol class="menu__links" role="list">
+            <li><a class="menu__link" href="#story" data-menu-link><span class="menu__num mono">01</span><span class="menu__text">The idea</span></a></li>
+            <li><a class="menu__link" href="#anatomy" data-menu-link><span class="menu__num mono">02</span><span class="menu__text">Anatomy</span></a></li>
+            <li><a class="menu__link" href="#movement" data-menu-link><span class="menu__num mono">03</span><span class="menu__text">Movement</span></a></li>
+            <li><a class="menu__link" href="#configure" data-menu-link><span class="menu__num mono">04</span><span class="menu__text">Configure</span></a></li>
+            <li><a class="menu__link" href="#editions" data-menu-link><span class="menu__num mono">05</span><span class="menu__text">Editions</span></a></li>
+            <li><a class="menu__link" href="#reserve" data-menu-link><span class="menu__num mono">06</span><span class="menu__text">Reserve</span></a></li>
+          </ol>
+        </nav>
+        <p class="menu__foot mono">ORIEL is a concept project by Ayoub Benkreira.</p>
+      </div>
+    </dialog>
+
+    <dialog class="drawer" id="bag" aria-labelledby="bag-title">
+      <div class="drawer__panel">
+        <header class="drawer__head">
+          <h2 class="drawer__title display" id="bag-title">Your bag</h2>
+          <button class="btn btn--icon" type="button" data-bag-close aria-label="Close bag">
+            <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"><path d="M19.0068 5L5.00684 19"/><path d="M19 19L5 5"/></g></svg>
+          </button>
+        </header>
+        <div class="drawer__body" data-lenis-prevent>
+          <ul class="bag-list" role="list" data-bag-items></ul>
+          <div class="bag-empty" data-bag-empty>
+            <p class="bag-empty__title display">Your bag is empty.</p>
+            <p class="bag-empty__text">Every O-1 starts with a choice of metal.</p>
+            <a class="btn btn--ghost" href="#configure" data-bag-close>
+              <span class="btn__fill" aria-hidden="true"></span>
+              <span class="btn__label" data-text="Configure yours">Configure yours</span>
+            </a>
+          </div>
+        </div>
+        <footer class="drawer__foot">
+          <dl class="drawer__totals">
+            <div><dt>Subtotal</dt><dd data-bag-subtotal>€0</dd></div>
+            <div><dt>Delivery</dt><dd>Complimentary, insured</dd></div>
+          </dl>
+          <button class="btn btn--primary btn--block" type="button" data-checkout>
+            <span class="btn__fill" aria-hidden="true"></span>
+            <span class="btn__icon"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"><path d="M2 16C2 13.1716 2 11.7574 2.87868 10.8787C3.75736 10 5.17157 10 8 10H16C18.8284 10 20.2426 10 21.1213 10.8787C22 11.7574 22 13.1716 22 16C22 18.8284 22 20.2426 21.1213 21.1213C20.2426 22 18.8284 22 16 22H8C5.17157 22 3.75736 22 2.87868 21.1213C2 20.2426 2 18.8284 2 16Z"/><path d="M12 14V18"/><path d="M6 10V8C6 4.68629 8.68629 2 12 2C15.3137 2 18 4.68629 18 8V10"/></g></svg></span>
+            <span class="btn__label" data-text="Checkout">Checkout</span>
+          </button>
+          <p class="drawer__note mono" data-checkout-note>ORIEL is a concept store. Checkout is switched off and nothing is charged.</p>
+        </footer>
+      </div>
+    </dialog>
+
+    <div class="toast-region" role="status" aria-live="polite" data-toast-region></div>
+  </body>
+</html>

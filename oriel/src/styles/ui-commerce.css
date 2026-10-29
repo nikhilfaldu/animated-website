@@ -1,0 +1,943 @@
+/* Owner: UI · commerce (docs/DIRECTION.md §3).
+   Preloader, page curtain, bag drawer, configurator chips, hold-to-reserve, odometer. */
+
+/* The ORIEL mark (ring, 12 o'clock index, centre pin) as a mask, so it paints in any token colour. */
+:root {
+  --oriel-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' fill='none' stroke='%23000' stroke-width='1.5' stroke-linecap='round'%3E%3Ccircle cx='16' cy='16' r='13'/%3E%3Cpath d='M16 3v6'/%3E%3Ccircle cx='16' cy='16' r='2' fill='%23000' stroke='none'/%3E%3C/svg%3E");
+}
+
+/* Hides a full-screen overlay if JavaScript never takes it over. */
+@keyframes oriel-failsafe-out {
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
+/* A gold hairline riding the edge of an opening or closing iris (src/ui/transition.js). */
+.iris-edge {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+.iris-edge circle {
+  fill: none;
+  stroke: var(--gold);
+  stroke-width: 1px;
+}
+
+/* =========================================================================
+   Preloader
+   ========================================================================= */
+.preloader {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-preloader);
+  display: grid;
+  place-items: center;
+  background: var(--ink-0);
+  color: var(--bone);
+  animation: oriel-failsafe-out 300ms var(--ease-out) 6s both;
+}
+.no-js .preloader,
+.is-arriving .preloader {
+  display: none;
+}
+
+/* Registration marks, borrowed from technical drawings. */
+.preloader::before,
+.preloader::after {
+  content: '+';
+  position: absolute;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  line-height: 1;
+  color: var(--bone-3);
+}
+.preloader::before {
+  top: clamp(20px, 4vw, 40px);
+  left: clamp(20px, 4vw, 40px);
+}
+.preloader::after {
+  right: clamp(20px, 4vw, 40px);
+  bottom: clamp(20px, 4vw, 40px);
+}
+
+.preloader__dial,
+.preloader__count {
+  grid-area: 1 / 1;
+}
+
+.preloader__dial {
+  width: clamp(220px, 46vmin, 380px);
+  aspect-ratio: 1;
+}
+
+.preloader__ticks {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.preloader__tick {
+  stroke: var(--bone-3);
+  stroke-width: 1px;
+  stroke-linecap: butt;
+  opacity: 0.4;
+}
+.preloader__tick.is-major {
+  opacity: 0.8;
+}
+.preloader__tick--gold {
+  stroke: var(--gold);
+  opacity: 0;
+  transition: opacity var(--dur-ui) var(--ease-out);
+}
+.preloader__tick--gold.is-lit {
+  opacity: 1;
+}
+
+.preloader__index {
+  fill: var(--gold-hi);
+  transform-origin: 100px 100px;
+}
+
+.preloader__count {
+  font-size: clamp(2.5rem, 1.9rem + 2.4vw, 3.75rem);
+  line-height: 1;
+  letter-spacing: 0.04em;
+  color: var(--bone);
+  font-variant-numeric: tabular-nums;
+}
+.preloader__pad {
+  color: var(--bone-3);
+}
+
+.preloader__brand {
+  position: absolute;
+  inset-inline: 0;
+  bottom: clamp(24px, 6vh, 56px);
+  text-align: center;
+  color: var(--bone-3);
+}
+
+/* =========================================================================
+   Page curtain
+   ========================================================================= */
+.curtain {
+  --curtain-mark: 0;
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-curtain);
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 16px;
+  background: var(--ink-0);
+  pointer-events: none;
+  visibility: hidden;
+}
+.no-js .curtain {
+  display: none;
+}
+/* Arriving from a page transition: closed from the first paint, opened by reveal(). */
+.is-arriving .curtain {
+  --curtain-mark: 1;
+  visibility: visible;
+  animation: oriel-failsafe-out 300ms var(--ease-out) 4s both;
+}
+
+.curtain::before,
+.curtain::after {
+  opacity: var(--curtain-mark);
+  transform: translateY(calc((1 - var(--curtain-mark)) * 8px));
+}
+.curtain::before {
+  content: '';
+  width: 44px;
+  height: 44px;
+  background: var(--bone);
+  -webkit-mask: var(--oriel-mark) center / contain no-repeat;
+  mask: var(--oriel-mark) center / contain no-repeat;
+}
+.curtain::after {
+  content: 'ORIEL';
+  padding-left: 0.42em; /* optically centre the tracked word */
+  font-family: var(--font-mono);
+  font-size: var(--step--1);
+  line-height: 1;
+  letter-spacing: 0.42em;
+  color: var(--bone-2);
+}
+
+/* =========================================================================
+   Bag drawer (<dialog id="bag" class="drawer">)
+   ========================================================================= */
+.drawer {
+  --drawer-pad: clamp(20px, 2.6vw, 32px);
+  position: fixed;
+  inset: 0 0 0 auto;
+  width: min(100%, 30rem);
+  max-width: 100%;
+  height: auto;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--bone);
+  overflow: clip;
+}
+/* ::backdrop only inherits custom properties in recent engines, so the drawer curve is written out. */
+.drawer::backdrop {
+  background: rgb(10 9 8 / 0.62);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  opacity: 0;
+  transition: opacity 420ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+.drawer.is-open::backdrop {
+  opacity: 1;
+}
+
+.drawer__panel {
+  position: relative;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  height: 100%;
+  background: var(--ink-1);
+  box-shadow: inset 1px 0 0 var(--line);
+  transform: translateX(100%);
+  transition: transform var(--dur-drawer) var(--ease-drawer);
+}
+.drawer.is-open .drawer__panel {
+  transform: none;
+}
+
+@media (max-width: 599px) {
+  .drawer {
+    width: 100%;
+  }
+  .drawer__panel {
+    box-shadow: none;
+  }
+}
+
+.drawer__head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px var(--drawer-pad) 18px;
+  border-bottom: 1px solid var(--line);
+}
+.drawer__title {
+  font-size: clamp(1.75rem, 1.5rem + 0.8vw, 2.25rem);
+  line-height: 1;
+}
+.drawer__title:focus-visible {
+  outline-offset: 6px;
+}
+.drawer__count {
+  margin-right: auto;
+  padding-top: 0.35em;
+  color: var(--bone-3);
+  font-size: var(--step--2);
+}
+
+.drawer__body {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-inline: var(--drawer-pad);
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+
+.drawer__foot {
+  display: grid;
+  gap: 16px;
+  padding: 20px var(--drawer-pad) calc(20px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--line);
+}
+.drawer.is-empty .drawer__foot {
+  display: none;
+}
+
+.drawer__totals {
+  display: grid;
+  gap: 10px;
+}
+.drawer__totals > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+.drawer__totals dt {
+  font-family: var(--font-mono);
+  font-size: var(--step--2);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-mono);
+  color: var(--bone-3);
+}
+.drawer__totals dd {
+  margin: 0;
+  font-size: var(--step--1);
+  color: var(--bone-2);
+  text-align: right;
+}
+.drawer__totals [data-bag-subtotal] {
+  font-family: var(--font-display);
+  font-size: clamp(1.6rem, 1.45rem + 0.5vw, 1.9rem);
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+  color: var(--bone);
+}
+
+.drawer__note {
+  position: relative;
+  padding-left: 14px;
+  font-size: var(--step--2);
+  line-height: 1.5;
+  color: var(--bone-3);
+}
+.drawer__note::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.2em;
+  bottom: 0.2em;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--gold);
+  transform: scaleY(0);
+  transform-origin: top;
+  transition: transform 320ms var(--ease-out);
+}
+/* Checkout pressed: the honest note steps forward. */
+.drawer__note.is-flagged {
+  color: var(--bone);
+}
+.drawer__note.is-flagged::before {
+  transform: scaleY(1);
+}
+
+/* Empty state */
+.bag-empty {
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+  padding-block: clamp(40px, 9vh, 88px);
+}
+.bag-empty::before {
+  content: '';
+  width: 48px;
+  height: 48px;
+  margin-bottom: 14px;
+  background: var(--line-strong);
+  -webkit-mask: var(--oriel-mark) center / contain no-repeat;
+  mask: var(--oriel-mark) center / contain no-repeat;
+}
+.bag-empty__title {
+  font-size: clamp(1.75rem, 1.5rem + 0.8vw, 2.25rem);
+  line-height: 1.05;
+}
+.bag-empty__text {
+  margin-bottom: 14px;
+  color: var(--bone-2);
+}
+
+/* Line items */
+.bag-list:empty {
+  display: none;
+}
+.bag-line {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr) auto;
+  column-gap: 16px;
+  padding-block: 22px;
+  border-bottom: 1px solid var(--line);
+}
+.bag-line:last-child {
+  border-bottom: 0;
+}
+.bag-line.is-exiting {
+  pointer-events: none;
+}
+
+.bag-line__media {
+  position: relative;
+  width: 72px;
+  aspect-ratio: 4 / 5;
+  overflow: hidden;
+  border-radius: var(--radius-s);
+  /* Shown until (or instead of) the poster: a hairline case on a lit sweep. */
+  background:
+    radial-gradient(circle at 50% 46%, transparent 0 13px, var(--line-strong) 13.5px 14.5px, transparent 15px),
+    radial-gradient(120% 90% at 50% 20%, var(--ink-3), var(--ink-2) 70%);
+}
+.bag-line__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: transparent;
+}
+
+.bag-line__body {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  min-width: 0;
+}
+.bag-line__badge {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+  padding: 4px 10px 4px 8px;
+  border-radius: var(--radius-pill);
+  box-shadow: inset 0 0 0 1px rgb(205 176 122 / 0.42);
+  font-size: var(--step--2);
+  line-height: 1.2;
+  color: var(--gold);
+}
+.bag-line__badge svg {
+  flex: none;
+  font-size: 1.1em;
+}
+.bag-line__name {
+  font-size: 1.375rem;
+  line-height: 1.1;
+}
+.bag-line__desc {
+  font-size: var(--step--2);
+  color: var(--bone-3);
+}
+.bag-line__controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 18px;
+  margin-top: 12px;
+}
+
+.bag-line__price {
+  display: grid;
+  justify-items: end;
+  align-content: start;
+  gap: 2px;
+  text-align: right;
+}
+.bag-line__total {
+  font-size: var(--step--1);
+  color: var(--bone);
+}
+.bag-line__unit {
+  font-size: var(--step--2);
+  color: var(--bone-3);
+}
+
+.bag-line__remove {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  font-size: var(--step--2);
+  color: var(--bone-3);
+}
+.bag-line__remove svg {
+  font-size: 1.15em;
+}
+.bag-line__remove span {
+  position: relative;
+}
+.bag-line__remove span::after {
+  content: '';
+  position: absolute;
+  inset: auto 0 -2px;
+  height: 1px;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: right;
+  transition: transform var(--dur-hover) var(--ease-out);
+}
+
+/* Quantity stepper */
+.qty {
+  display: inline-flex;
+  align-items: center;
+  height: 36px;
+  border-radius: var(--radius-pill);
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+}
+.qty__btn {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  font-size: 15px;
+  color: var(--bone);
+}
+.qty__btn::before {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  border-radius: inherit;
+  background: var(--ink-3);
+  opacity: 0;
+  transition: opacity var(--dur-hover) var(--ease-out);
+}
+.qty__btn svg {
+  position: relative;
+}
+.qty__btn:active:not([aria-disabled='true']) svg {
+  transform: scale(0.88);
+}
+.qty__btn svg {
+  transition: transform var(--dur-press) var(--ease-out);
+}
+.qty__btn[aria-disabled='true'] {
+  color: var(--bone-3);
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.qty__value {
+  min-width: 2.2ch;
+  font-size: var(--step--1);
+  text-align: center;
+}
+.qty--fixed {
+  height: auto;
+  box-shadow: none;
+  font-size: var(--step--2);
+  color: var(--bone-2);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .qty__btn:not([aria-disabled='true']):hover::before {
+    opacity: 1;
+  }
+  .bag-line__remove:hover {
+    color: var(--bone);
+  }
+  .bag-line__remove:hover span::after {
+    transform: scaleX(1);
+    transform-origin: left;
+  }
+}
+
+/* =========================================================================
+   Configurator (forms marked [data-configurator])
+   ========================================================================= */
+.config {
+  display: grid;
+  gap: clamp(22px, 2.6vw, 32px);
+}
+.config__group {
+  container: config-group / inline-size;
+  min-inline-size: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.config__legend {
+  float: left; /* lets the legend sit in normal flow inside the fieldset */
+  width: 100%;
+  margin-bottom: 12px;
+  padding: 0;
+  color: var(--bone-3);
+}
+.config__legend + * {
+  clear: both;
+}
+.config__options {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+}
+@container config-group (min-width: 33rem) {
+  .config__options {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* Chips: card rows with a material swatch. Layers (all opacity/transform):
+   ::before = checked plate (ink-2 + gold hairline), ::after = hover hairline,
+   .chip__text::before = specular sheen, .chip__swatch::after = gold ring. */
+.chip {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 64px;
+  padding: 12px 16px 12px 14px;
+  overflow: clip;
+  border-radius: var(--radius-m);
+  box-shadow: inset 0 0 0 1px var(--line);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.chip::before,
+.chip::after,
+.chip__text::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  pointer-events: none;
+}
+.chip::before {
+  background: var(--ink-2);
+  box-shadow: inset 0 0 0 1px var(--gold);
+  opacity: 0;
+  transition: opacity var(--dur-ui) var(--ease-out);
+}
+.chip::after {
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+  opacity: 0;
+  transition: opacity var(--dur-hover) var(--ease-out);
+}
+.chip__text::before {
+  background: linear-gradient(
+    105deg,
+    transparent 30%,
+    rgb(237 230 218 / 0.05) 42%,
+    rgb(237 230 218 / 0.11) 50%,
+    rgb(237 230 218 / 0.05) 58%,
+    transparent 70%
+  );
+  opacity: 0;
+  transform: translateX(-100%);
+  transition: opacity var(--dur-hover) var(--ease-out);
+}
+
+.chip__input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.chip__swatch {
+  position: relative;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 34% 28%, rgb(255 255 255 / 0.42), transparent 46%),
+    radial-gradient(circle at 50% 50%, var(--swatch), color-mix(in oklab, var(--swatch), black 38%) 100%);
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 0.16),
+    inset 0 -3px 6px rgb(0 0 0 / 0.35);
+  transition: transform var(--dur-hover) var(--ease-out);
+}
+/* Inner ring: the bezel on a case swatch, the chapter ring on a dial swatch. */
+.chip__swatch::before {
+  content: '';
+  position: absolute;
+  inset: 5px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.2);
+}
+.chip--dial .chip__swatch {
+  background:
+    radial-gradient(circle at 50% 50%, transparent 40%, rgb(0 0 0 / 0.32) 100%),
+    repeating-conic-gradient(from 8deg, var(--swatch) 0deg 5deg, color-mix(in oklab, var(--swatch), white 9%) 5deg 10deg);
+}
+.chip__swatch::after {
+  content: '';
+  position: absolute;
+  inset: -5px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px var(--gold);
+  opacity: 0;
+  transform: scale(0.82);
+  transition:
+    opacity var(--dur-ui) var(--ease-out),
+    transform var(--dur-ui) var(--ease-out);
+}
+
+.chip__text {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.chip__name {
+  font-size: 1rem;
+  line-height: 1.25;
+  color: var(--bone);
+}
+.chip__meta {
+  font-size: var(--step--2);
+  line-height: 1.3;
+  color: var(--bone-3);
+}
+
+.chip:has(.chip__input:checked)::before,
+.chip:has(.chip__input:checked) .chip__swatch::after {
+  opacity: 1;
+  transform: none;
+}
+/* bone-3 drops below 4.5:1 on ink-2; the checked meta steps up to bone-2. */
+.chip:has(.chip__input:checked) .chip__meta {
+  color: var(--bone-2);
+}
+.chip:has(.chip__input:focus-visible) {
+  outline: 2px solid var(--focus);
+  outline-offset: 3px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .chip:hover:not(:has(.chip__input:checked))::after {
+    opacity: 1;
+  }
+  .chip:hover .chip__swatch {
+    transform: scale(1.06);
+  }
+  /* The sheen sweeps on hover-in only; on leave it fades where it is, then resets off-screen. */
+  .chip:hover .chip__text::before {
+    opacity: 1;
+    transform: translateX(100%);
+    transition:
+      transform 650ms var(--ease-out),
+      opacity 0ms;
+  }
+}
+
+/* Summary, price and actions: generic; pages may add layout. */
+.config__summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 10px 24px;
+  padding-block: 20px;
+  border-block: 1px solid var(--line);
+}
+.config__name {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.config__edition {
+  font-family: var(--font-display);
+  font-size: var(--step-1);
+  line-height: 1.1;
+  color: var(--bone);
+}
+.config__desc {
+  font-size: var(--step--2);
+  color: var(--bone-3);
+}
+.config__price {
+  font-size: clamp(2.25rem, 1.7rem + 2vw, 3.5rem);
+  line-height: 1;
+  letter-spacing: -0.015em;
+  white-space: nowrap;
+}
+.config__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px 28px;
+}
+.config__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+}
+
+/* =========================================================================
+   Hold to reserve
+   ========================================================================= */
+.hold {
+  --hold-size: 168px;
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: var(--hold-size);
+  height: var(--hold-size);
+  flex: none;
+  border-radius: 50%;
+  background: var(--ink-1);
+  color: var(--bone);
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform var(--dur-press) var(--ease-out);
+}
+.hold:focus-visible {
+  outline-offset: 6px;
+  border-radius: 50%;
+}
+/* Inner face, lit on hover and while held. */
+.hold::before {
+  content: '';
+  position: absolute;
+  inset: 12px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 28%, var(--ink-3), var(--ink-2) 72%);
+  opacity: 0;
+  transition: opacity var(--dur-hover) var(--ease-out);
+}
+/* Start index at 12 o'clock, where the fill begins. */
+.hold::after {
+  content: '';
+  position: absolute;
+  top: calc(var(--hold-size) * 4 / 120 - 2px);
+  left: calc(50% - 2px);
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--gold);
+}
+.hold.is-holding {
+  transform: scale(0.97);
+}
+.hold.is-holding::before,
+.hold.is-complete::before {
+  opacity: 1;
+}
+
+.hold__ring {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+.hold__track,
+.hold__progress {
+  fill: none;
+  vector-effect: non-scaling-stroke;
+}
+.hold__track {
+  stroke: var(--line-strong);
+  stroke-width: 1px;
+}
+.hold__progress {
+  stroke: var(--gold);
+  stroke-width: 2px;
+  stroke-dasharray: 1 1;
+  stroke-dashoffset: 1;
+  transform: rotate(-90deg);
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.hold__label {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5em;
+  max-width: 11ch;
+  font-family: var(--font-mono);
+  font-size: var(--step--1);
+  line-height: 1.35;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-mono);
+  text-align: center;
+}
+.hold__label svg {
+  flex: none;
+  font-size: 1.25em;
+}
+.hold.is-complete .hold__label {
+  max-width: none;
+  color: var(--gold);
+}
+
+.hold__pulse {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px var(--gold);
+  pointer-events: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .hold:hover::before {
+    opacity: 1;
+  }
+}
+
+/* =========================================================================
+   Odometer (src/ui/odometer.js)
+   ========================================================================= */
+.odo {
+  white-space: nowrap;
+  user-select: none; /* the strips hold every digit; the sr-only copy carries the value */
+  font-variant-numeric: lining-nums tabular-nums;
+}
+.odo__col {
+  /* Strip cells are taller than the line, so neighbouring digits never peek into the window. */
+  --odo-pitch: 1.5em;
+  position: relative;
+  display: inline-grid;
+  vertical-align: baseline;
+  clip-path: inset(calc((1lh - var(--odo-pitch)) / 2) -0.1em);
+}
+.odo__ghost {
+  grid-area: 1 / 1;
+  visibility: hidden;
+}
+.odo__strip {
+  position: absolute;
+  inset-inline: 0;
+  top: calc((1lh - var(--odo-pitch)) / 2);
+  display: flex;
+  flex-direction: column;
+}
+.odo__cell {
+  display: block;
+  height: var(--odo-pitch);
+  line-height: var(--odo-pitch);
+  text-align: center;
+}
+
+/* =========================================================================
+   Reduced motion: final states, opacity fades only
+   ========================================================================= */
+@media (prefers-reduced-motion: reduce) {
+  .drawer__panel {
+    transform: none;
+    opacity: 0;
+    transition: opacity 200ms var(--ease-out);
+  }
+  .drawer.is-open .drawer__panel {
+    opacity: 1;
+  }
+  .drawer::backdrop {
+    transition-duration: 200ms;
+  }
+  .hold,
+  .chip__swatch,
+  .chip__swatch::after,
+  .qty__btn svg,
+  .drawer__note::before {
+    transition: none;
+  }
+  .hold.is-holding,
+  .qty__btn:active:not([aria-disabled='true']) svg {
+    transform: none;
+  }
+  .chip__text::before {
+    display: none;
+  }
+}

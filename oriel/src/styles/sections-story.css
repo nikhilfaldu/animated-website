@@ -1,0 +1,466 @@
+/* Index · story chapters: hero, manifesto, anatomy, movement. The watch canvas is fixed behind all of
+   them, so sections stay transparent and leave room where each pose puts the watch. */
+
+main > section {
+  position: relative;
+}
+
+/* Technical-drawing hairline with a registration mark at the start of every chapter after the hero. */
+main > section:not(.hero)::before,
+main > section:not(.hero)::after {
+  position: absolute;
+  top: 0;
+  pointer-events: none;
+}
+main > section:not(.hero)::before {
+  content: '';
+  left: var(--gutter);
+  right: var(--gutter);
+  height: 1px;
+  background: linear-gradient(90deg, var(--line-strong), var(--line) 30%, transparent 85%);
+}
+main > section:not(.hero)::after {
+  content: '+';
+  left: calc(var(--gutter) - 0.32em);
+  transform: translateY(-52%);
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  line-height: 1;
+  color: var(--gold);
+}
+
+/* ---------- Hero ---------- */
+.hero {
+  min-height: 100svh;
+  display: grid;
+  grid-template-rows: 1fr auto;
+  padding-top: var(--nav-h);
+}
+
+.hero__inner {
+  align-content: center;
+  row-gap: 2rem;
+}
+
+.hero__copy {
+  grid-column: 1 / span 7;
+  display: grid;
+  gap: clamp(1.25rem, 2.2vw, 2rem);
+  justify-items: start;
+  padding-block: 4vh;
+}
+
+.hero__title {
+  font-size: clamp(3.4rem, 1rem + 8.4vw, 9.6rem);
+  line-height: 0.9;
+  letter-spacing: -0.025em;
+}
+.hero__title em {
+  display: block;
+}
+
+.hero__lead {
+  max-width: 30rem;
+}
+
+.hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.hero__figure {
+  grid-column: 8 / -1;
+  align-self: center;
+}
+.hero__poster {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: contain;
+  background: transparent;
+}
+
+.hero__meta {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1.5rem;
+  padding-bottom: clamp(18px, 3vh, 32px);
+}
+
+.hero__time {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.9rem;
+  color: var(--bone-2);
+}
+.hero__time-label {
+  color: var(--bone-3);
+}
+.hero__time-value {
+  color: var(--bone);
+  font-variant-numeric: tabular-nums;
+}
+.no-js .hero__time {
+  visibility: hidden;
+}
+
+.hero__cue {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  color: var(--bone-3);
+}
+.hero__cue-line {
+  position: relative;
+  width: 56px;
+  height: 1px;
+  overflow: hidden;
+  background: var(--line);
+}
+.hero__cue-line::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--gold);
+  transform: scaleX(0);
+  transform-origin: left;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .hero__cue-line::after {
+    animation: cue 2.4s var(--ease-in-out) infinite;
+  }
+}
+@keyframes cue {
+  0% { transform: scaleX(0); transform-origin: left; }
+  45% { transform: scaleX(1); transform-origin: left; }
+  55% { transform: scaleX(1); transform-origin: right; }
+  100% { transform: scaleX(0); transform-origin: right; }
+}
+
+/* ---------- Manifesto ---------- */
+.manifesto__inner {
+  min-height: 100svh;
+  align-content: center;
+  row-gap: clamp(1.5rem, 3vw, 3rem);
+  padding-block: calc(var(--nav-h) + 4vh) 8vh;
+}
+.manifesto__mark {
+  grid-column: 2 / -1;
+}
+.manifesto__text {
+  grid-column: 2 / span 10;
+  font-size: clamp(2.1rem, 0.9rem + 4.1vw, 5.4rem);
+  line-height: 1.04;
+  letter-spacing: -0.015em;
+  text-wrap: balance;
+}
+.manifesto__text em {
+  color: var(--gold);
+}
+.manifesto__aside {
+  grid-column: 8 / span 4;
+  color: var(--bone-2);
+  max-width: 26rem;
+}
+
+/* ---------- Anatomy ---------- */
+.anatomy__pin {
+  position: relative;
+  min-height: 100svh;
+  grid-template-rows: auto 1fr;
+  align-items: start;
+  padding-block: calc(var(--nav-h) + 3vh) 5vh;
+}
+
+.anatomy__head {
+  grid-column: 1 / span 5;
+  grid-row: 1;
+  display: grid;
+  gap: 1rem;
+  position: relative;
+  z-index: 1;
+}
+.anatomy__title,
+.movement__title,
+.configure__title,
+.numbers__title,
+.editions__title,
+.reserve__title {
+  font-size: clamp(2.3rem, 1.2rem + 3.3vw, 4.6rem);
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.anatomy__list {
+  grid-column: 9 / -1;
+  grid-row: 1 / span 2;
+  align-self: center;
+  display: grid;
+  position: relative;
+  z-index: 1;
+}
+
+.layer {
+  display: grid;
+  grid-template-columns: 2.4rem 1fr;
+  column-gap: 0.75rem;
+  padding-block: 0.8rem;
+  border-top: 1px solid var(--line);
+  transition: color var(--dur-hover) ease;
+}
+.layer:last-child {
+  border-bottom: 1px solid var(--line);
+}
+.layer__index {
+  grid-row: 1 / span 2;
+  color: var(--gold);
+  padding-top: 0.2rem;
+}
+.layer__name {
+  font-family: var(--font-display);
+  font-size: clamp(1.25rem, 1rem + 0.7vw, 1.65rem);
+  line-height: 1.15;
+}
+.layer__note {
+  font-size: 0.92rem;
+  line-height: 1.45;
+  color: var(--bone-2);
+}
+.layer.is-current .layer__name {
+  color: var(--gold-hi);
+}
+
+.anatomy__figure {
+  grid-column: 1 / span 7;
+  grid-row: 2;
+  align-self: center;
+}
+.anatomy__poster,
+.movement__poster {
+  width: min(100%, 44rem);
+  aspect-ratio: 1;
+  object-fit: contain;
+  background: transparent;
+}
+
+.anatomy__leaders {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+  opacity: 0;
+}
+.anatomy__leaders path {
+  fill: none;
+  stroke: var(--gold);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+.anatomy__leaders circle {
+  fill: var(--ink-0);
+  stroke: var(--gold);
+  stroke-width: 1.5;
+}
+
+/* ---------- Movement ---------- */
+.movement__pin {
+  position: relative;
+  min-height: 100svh;
+  grid-template-rows: auto 1fr auto;
+  padding-block: calc(var(--nav-h) + 3vh) 6vh;
+}
+.movement.is-pinned .movement__pin::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 58%;
+  background: linear-gradient(90deg, var(--ink-0) 0%, var(--ink-0) 42%, rgb(10 9 8 / 0.82) 64%, transparent 100%);
+  pointer-events: none;
+}
+.movement__head {
+  grid-column: 1 / span 5;
+  grid-row: 1;
+  display: grid;
+  gap: 1rem;
+  position: relative;
+}
+.movement__chapters {
+  grid-column: 1 / span 4;
+  grid-row: 2;
+  align-self: center;
+  display: grid;
+  position: relative;
+}
+.movement.is-pinned .chapter {
+  grid-area: 1 / 1;
+}
+.chapter {
+  display: grid;
+  gap: 1rem;
+  align-content: start;
+}
+.movement.is-static .chapter + .chapter {
+  margin-top: 3rem;
+  padding-top: 3rem;
+  border-top: 1px solid var(--line);
+}
+.chapter__index {
+  color: var(--gold);
+}
+.chapter__title {
+  font-size: clamp(1.8rem, 1.2rem + 1.8vw, 3rem);
+}
+.chapter__body {
+  color: var(--bone-2);
+  max-width: 28rem;
+}
+.chapter__stat {
+  display: flex;
+  align-items: baseline;
+  gap: 0.9rem;
+  margin-top: 0.75rem;
+}
+.chapter__stat-value {
+  font-size: clamp(2.6rem, 1.6rem + 3vw, 4.6rem);
+  line-height: 1;
+  color: var(--gold-hi);
+}
+.chapter__stat-unit {
+  color: var(--bone-3);
+}
+
+.movement__progress {
+  grid-column: 1 / span 4;
+  grid-row: 3;
+  display: flex;
+  gap: 0.5rem;
+  position: relative;
+}
+.movement__tick {
+  width: 2.75rem;
+  height: 2px;
+  background: var(--line-strong);
+  position: relative;
+  overflow: hidden;
+}
+.movement__tick::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--gold);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 500ms var(--ease-out);
+}
+.movement__tick.is-done::after {
+  transform: scaleX(1);
+}
+.movement.is-static .movement__progress {
+  display: none;
+}
+
+.movement__figure {
+  grid-column: 6 / -1;
+  grid-row: 1 / span 3;
+  align-self: center;
+  justify-self: center;
+}
+
+/* ---------- Tablet & phone ---------- */
+@media (max-width: 1023px) {
+  .anatomy__list {
+    grid-column: 7 / -1;
+  }
+  .layer__note {
+    font-size: 0.85rem;
+  }
+}
+
+@media (max-width: 767px) {
+  .hero__inner {
+    align-content: end;
+  }
+  .hero__copy,
+  .hero__figure {
+    grid-column: 1 / -1;
+  }
+  .has-webgl .hero__copy {
+    padding-top: 42svh;
+  }
+  .hero__figure {
+    grid-row: 1;
+  }
+  .has-webgl .hero__figure {
+    display: none;
+  }
+  .hero__cue {
+    display: none;
+  }
+
+  .manifesto__mark,
+  .manifesto__text,
+  .manifesto__aside {
+    grid-column: 1 / -1;
+  }
+
+  .anatomy__head,
+  .anatomy__list,
+  .anatomy__figure {
+    grid-column: 1 / -1;
+  }
+  .anatomy__list {
+    grid-row: auto;
+  }
+  .anatomy:not(.is-static) .anatomy__pin {
+    grid-template-rows: auto 1fr auto;
+  }
+  .anatomy:not(.is-static) .anatomy__list {
+    grid-row: 3;
+    align-self: end;
+    background: linear-gradient(transparent, var(--ink-0) 18%);
+    padding-top: 1.5rem;
+  }
+  .anatomy:not(.is-static) .layer {
+    padding-block: 0.45rem;
+  }
+  .anatomy:not(.is-static) .layer:not(.is-current) .layer__note {
+    display: none;
+  }
+  .anatomy__leaders {
+    display: none;
+  }
+
+  .movement__head,
+  .movement__chapters,
+  .movement__progress,
+  .movement__figure {
+    grid-column: 1 / -1;
+  }
+  .movement.is-pinned .movement__pin::before {
+    inset: auto 0 0 0;
+    width: auto;
+    height: 62%;
+    background: linear-gradient(0deg, var(--ink-0) 0%, rgb(10 9 8 / 0.88) 55%, transparent 100%);
+  }
+  .movement.is-pinned .movement__pin {
+    height: 100svh;
+    row-gap: 1.5rem;
+  }
+  .movement.is-pinned .movement__chapters {
+    align-self: end;
+  }
+  .chapter__body {
+    font-size: 0.95rem;
+  }
+  .movement__figure {
+    grid-row: auto;
+  }
+  .has-webgl .movement__figure,
+  .has-webgl .anatomy__figure {
+    display: none;
+  }
+}
