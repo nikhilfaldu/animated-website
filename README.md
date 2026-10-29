@@ -23,3 +23,4 @@ npm run dev
 | `scroll-cinema/` | Scroll-Cinema template — scroll-scrubbed video + 3D hero landing page, with an AI-agent skill (static HTML — run `npx serve .` inside the folder) |
 | `cinematic-hero/` | Scroll-driven Three.js particle hero that morphs ring → cube → starfield (Vite, GSAP) |
 | `codrops-cinematic-scroll/` | Codrops cinematic 3D scroll demos — shader cylinder carousel + cyberpunk city camera scroll (React, Vite, R3F, GSAP) |
+| `chronos/` | CHRONOS scroll-driven time-machine journey through historical eras (three.js, GSAP, Lenis via CDN; Vite dev server) |

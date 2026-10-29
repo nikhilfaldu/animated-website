@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CHRONOS — Time Is a Destination</title>
+  <meta name="description" content="CHRONOS: an imaginative, fictional time-machine web experience." />
+  <meta name="theme-color" content="#02040a" />
+  <link rel="icon" type="image/svg+xml" href="./assets/logo.svg" />
+  <link rel="icon" type="image/png" sizes="512x512" href="./assets/logo-512.png" />
+  <link rel="apple-touch-icon" href="./assets/apple-touch-icon.png" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="CHRONOS — Time Is a Destination" />
+  <meta property="og:description" content="An immersive, scroll-driven sci-fi time-machine experience through five explorable 3D eras." />
+  <meta property="og:url" content="https://harivansh-b.github.io/Chronos/" />
+  <meta property="og:image" content="https://harivansh-b.github.io/Chronos/assets/og-image.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&family=Syncopate:wght@400;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./src/style.css" />
+</head>
+<body class="is-booting">
+  <!-- BOOT -->
+  <div id="boot" role="dialog" aria-label="Initialization sequence">
+    <div class="boot-scanner" aria-hidden="true"><span></span><span></span><span></span></div>
+    <div class="boot-log" id="bootLog" aria-live="polite"></div>
+    <button class="boot-skip" id="bootSkip">SKIP INTRO →</button>
+  </div>
+
+  <canvas id="webgl" aria-hidden="true"></canvas>
+  <div class="grain" aria-hidden="true"></div>
+  <div class="no-webgl" id="noWebgl" hidden>WebGL is unavailable — showing the static CHRONOS experience.</div>
+
+  <!-- NAV -->
+  <header class="nav" id="nav">
+    <a href="#hero" class="logo" data-nav>
+      <svg viewBox="0 0 32 32" width="26" height="26" aria-hidden="true"><circle cx="16" cy="16" r="13" fill="none" stroke="currentColor" stroke-width="1.5"/><ellipse cx="16" cy="16" rx="13" ry="5" fill="none" stroke="currentColor" stroke-width="1"/><circle cx="16" cy="16" r="3" fill="currentColor"/></svg>
+      CHRONOS
+    </a>
+    <nav aria-label="Primary">
+      <ul class="nav-links" id="navLinks">
+        <li><a href="#journey" data-nav>JOURNEY</a></li>
+        <li><a href="#destinations" data-nav>DESTINATIONS</a></li>
+        <li><a href="#machine" data-nav>THE MACHINE</a></li>
+        <li><a href="#control" data-nav>MISSION CONTROL</a></li>
+        <li class="mobile-only"><a href="#log" data-nav>MISSION LOG</a></li>
+      </ul>
+    </nav>
+    <div class="nav-actions">
+      <button class="icon-btn" id="audioToggle" aria-pressed="false" aria-label="Turn ambient audio on">
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z" fill="none" stroke="currentColor" stroke-width="1.6"/><path class="wave" d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="1.6"/><path class="mute" d="M16 9l5 6M21 9l-5 6" stroke="currentColor" stroke-width="1.6"/></svg>
+      </button>
+      <a href="#journey" class="btn btn-primary btn-sm" data-nav data-initiate>INITIATE</a>
+      <button class="icon-btn menu-btn" id="menuBtn" aria-expanded="false" aria-controls="navLinks" aria-label="Open menu">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h10" stroke="currentColor" stroke-width="1.6"/></svg>
+      </button>
+    </div>
+    <div class="nav-progress" aria-hidden="true"><span id="navProgress"></span></div>
+  </header>
+
+  <main id="smooth">
+    <!-- HERO -->
+    <section id="hero" class="hero">
+      <div class="hero-copy">
+        <p class="eyebrow">TEMPORAL REACTOR · PROTOTYPE 07</p>
+        <h1 class="hero-title"><span class="line"><span>WHAT IF YOU</span></span><span class="line"><span>COULD <em>REWRITE</em></span></span><span class="line"><span>TIME?</span></span></h1>
+        <p class="hero-sub">Step beyond the boundaries of history. Enter the unknown. Discover what time has hidden.</p>
+        <div class="hero-ctas">
+          <a href="#journey" class="btn btn-primary" data-nav data-initiate>INITIATE TIME TRAVEL</a>
+          <a href="#machine" class="btn btn-ghost" data-nav>EXPLORE THE MACHINE</a>
+        </div>
+        <p class="tagline">TIME IS NOT A LINE. IT IS A DESTINATION.</p>
+      </div>
+      <aside class="hud hero-hud" aria-label="Fictional interface readouts">
+        <div class="hud-row"><span>TEMPORAL COORD</span><b id="heroCoord">T+0000.000</b></div>
+        <div class="hud-row"><span>CURRENT ERA</span><b>PRESENT · 2026 CE</b></div>
+        <div class="hud-row"><span>CORE FLUX</span><b id="heroFlux">0.00</b></div>
+        <div class="hud-row"><span>FIELD STATE</span><b class="ok">STABLE</b></div>
+        <small>Fictional interface data · for narrative purposes only</small>
+      </aside>
+      <a href="#journey" class="scroll-cue" data-nav aria-label="Scroll to journey"><span></span>SCROLL</a>
+    </section>
+
+    <!-- JOURNEY -->
+    <section id="journey" class="journey" aria-label="Time travel sequence">
+      <div class="journey-pin">
+        <div class="journey-intro" id="journeyIntro">
+          <p class="eyebrow">SEQUENCE 01</p>
+          <h2>ENTERING THE<br/>TEMPORAL FIELD</h2>
+        </div>
+        <div class="era-panel" id="eraPanel" aria-live="polite">
+          <p class="eyebrow" id="eraNum">ERA 01</p>
+          <h2 id="eraName">PREHISTORIC EARTH</h2>
+          <p class="era-date" id="eraDate">65,000,000 YEARS AGO</p>
+          <p class="era-text" id="eraText"></p>
+          <p class="era-coord mono" id="eraCoord"></p>
+        </div>
+        <nav class="timeline" aria-label="Jump to era">
+          <p class="timeline-label">JUMP TO ERA</p>
+          <ol id="timeline"></ol>
+          <div class="journey-progress"><span id="journeyBar"></span></div>
+          <p class="mono small" id="journeyPct">000%</p>
+        </nav>
+        <div class="hotspots era-hotspots" id="eraHotspots"></div>
+        <p class="era-hint mono" id="eraHint" aria-hidden="true">DRAG TO LOOK AROUND · CLICK A BEACON TO INSPECT</p>
+        <article class="spec-panel era-card" id="eraCard" hidden aria-live="polite">
+          <button class="icon-btn spec-close" id="eraCardClose" aria-label="Close landmark panel">✕</button>
+          <p class="eyebrow">LANDMARK SCAN</p>
+          <h3 id="eraCardTitle"></h3>
+          <p id="eraCardDesc"></p>
+          <dl id="eraCardList"></dl>
+          <button type="button" class="btn btn-ghost btn-sm" id="eraRecenter">RECENTER VIEW</button>
+          <small>Fictional readings</small>
+        </article>
+      </div>
+    </section>
+
+    <!-- DESTINATIONS -->
+    <section id="destinations" class="section destinations">
+      <header class="section-head">
+        <p class="eyebrow">SECTION 04</p>
+        <h2 class="reveal">CHOOSE YOUR<br/>DESTINATION</h2>
+      </header>
+      <div class="dest-grid" id="destGrid"></div>
+    </section>
+
+    <!-- MACHINE -->
+    <section id="machine" class="section machine">
+      <header class="section-head">
+        <p class="eyebrow">SECTION 05</p>
+        <h2 class="reveal">INSIDE THE<br/>MACHINE</h2>
+        <p class="lede">Select a component. The housing separates to reveal the architecture of the reactor.</p>
+      </header>
+      <div class="machine-stage" id="machineStage">
+        <div class="hotspots" id="hotspots"></div>
+        <div class="machine-controls" role="toolbar" aria-label="Machine view controls">
+          <button class="btn btn-ghost btn-sm" id="rotLeft" aria-label="Rotate left">⟲ ROTATE</button>
+          <button class="btn btn-ghost btn-sm" id="rotRight" aria-label="Rotate right">ROTATE ⟳</button>
+          <button class="btn btn-ghost btn-sm" id="resetView">RESET VIEW</button>
+          <button class="btn btn-ghost btn-sm" id="toggleLabels" aria-pressed="true">LABELS: ON</button>
+        </div>
+        <article class="spec-panel" id="specPanel" hidden aria-live="polite">
+          <button class="icon-btn spec-close" id="specClose" aria-label="Close component panel">✕</button>
+          <p class="eyebrow" id="specCode"></p>
+          <h3 id="specTitle"></h3>
+          <p id="specDesc"></p>
+          <dl id="specList"></dl>
+          <small>Fictional specification</small>
+        </article>
+      </div>
+    </section>
+
+    <!-- MISSION CONTROL -->
+    <section id="control" class="section control">
+      <header class="section-head">
+        <p class="eyebrow">SECTION 06</p>
+        <h2 class="reveal">TEMPORAL<br/>MISSION CONTROL</h2>
+      </header>
+      <form class="console" id="console" novalidate>
+        <div class="console-col">
+          <label for="mcDest">DESTINATION</label>
+          <select id="mcDest" required>
+            <option value="">— Select an era —</option>
+          </select>
+          <label for="mcYear">TARGET YEAR <small>(negative = BCE)</small></label>
+          <input id="mcYear" type="number" inputmode="numeric" placeholder="e.g. -2500" />
+          <label for="mcPower">REACTOR POWER <output id="mcPowerOut">60%</output></label>
+          <input id="mcPower" type="range" min="0" max="100" value="60" />
+          <div class="stability">
+            <span>TEMPORAL STABILITY</span>
+            <div class="meter"><span id="mcStab"></span></div>
+            <b id="mcStabTxt">—</b>
+          </div>
+          <p class="mono small" id="mcCoord">COORD: ---</p>
+        </div>
+        <div class="console-col radar-col">
+          <div class="radar" aria-hidden="true">
+            <div class="radar-sweep"></div>
+            <div class="radar-ring r1"></div><div class="radar-ring r2"></div><div class="radar-ring r3"></div>
+            <span class="radar-blip" id="radarBlip"></span>
+          </div>
+          <div class="console-log mono" id="mcLog" role="status" aria-live="polite">AWAITING INPUT_</div>
+          <div class="console-actions">
+            <button type="button" class="btn btn-ghost" id="mcCalc">CALCULATE JUMP</button>
+            <button type="submit" class="btn btn-primary" id="mcJump" disabled>INITIATE JUMP</button>
+          </div>
+        </div>
+      </form>
+    </section>
+
+    <!-- ANOMALY -->
+    <section id="anomaly" class="anomaly" aria-label="The time anomaly">
+      <div class="anomaly-pin">
+        <h2 class="anomaly-title"><span>EVERY MOMENT EXISTS.</span><span>SOMEWHERE.</span></h2>
+        <p class="anomaly-text">Beyond the event horizon, nothing is lost. Forgotten afternoons, unwritten futures and moments no one witnessed fold into a single point — waiting for someone to look.</p>
+      </div>
+    </section>
+
+    <!-- LOG -->
+    <section id="log" class="section log">
+      <header class="section-head">
+        <p class="eyebrow">SECTION 08 · FICTIONAL ARCHIVE</p>
+        <h2 class="reveal">MISSION LOG</h2>
+        <p class="lede">Demo entries from an imagined expedition record. CHRONOS is a concept experience, not a real time-travel service.</p>
+      </header>
+      <ol class="log-list" id="logList"></ol>
+    </section>
+
+    <!-- FINALE -->
+    <section id="finale" class="finale">
+      <h2 class="reveal">YOUR NEXT MOMENT<br/>IS WAITING.</h2>
+      <a href="#journey" class="btn btn-primary" data-nav data-initiate>BEGIN ANOTHER JOURNEY</a>
+    </section>
+
+    <footer class="footer">
+      <div class="logo"><img src="./assets/logo.svg" width="32" height="32" alt="" />CHRONOS</div>
+      <ul>
+        <li><a href="#journey" data-nav>Journey</a></li>
+        <li><a href="#destinations" data-nav>Destinations</a></li>
+        <li><a href="#machine" data-nav>The Machine</a></li>
+        <li><a href="#control" data-nav>Mission Control</a></li>
+        <li><a href="#log" data-nav>Mission Log</a></li>
+      </ul>
+      <p class="mono small">PROJECT DESIGNATION CX-07 / FICTIONAL CONCEPT EXPERIENCE · © 2026</p>
+      <p class="mono small soundtrack-credit">SOUNDTRACK · <a id="soundtrackLink" href="#" target="_blank" rel="noopener"></a></p>
+    </footer>
+  </main>
+
+  <div class="flash" id="flash" aria-hidden="true"></div>
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
