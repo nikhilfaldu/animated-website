@@ -13,3 +13,4 @@ npm run dev
 | `award-winning-website/` | Zentry-style animated landing page (React, Vite, Tailwind, GSAP) |
 | `portfolio-ver-2/` | Jonathan Jesni's 3D developer portfolio (Next.js, React Three Fiber, GSAP, Lenis, Matter.js) |
 | `liquid-glass-carousel/` | Infinite WebGL image carousel with a liquid-glass lens shader (Next.js, three.js, GSAP) |
+| `kage/` | Scroll-driven Three.js night walk through a Kyoto temple (static HTML — run `npx serve .` inside the folder) |
