@@ -1,0 +1,415 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+  background: #05060a;
+  color: #e8f1ff;
+  font-family: 'Helvetica Neue', Arial, sans-serif;
+}
+
+#hero { position: relative; height: 100vh; overflow: hidden; }
+
+#scene {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100vw; height: 100vh;
+  display: block;
+}
+
+.hero-title {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding: 0 20px;
+  pointer-events: none;
+}
+
+/* Column-flex items with align-items:center size to max-content, so
+   without max-width the h1 overflows instead of wrapping on phones. */
+.hero-title h1 {
+  max-width: 100%;
+  font-family: var(--font-display);
+  font-size: clamp(40px, 8vw, 120px);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.hero-title h1 span {
+  display: inline-block;
+}
+
+.hero-title__word {
+  white-space: nowrap;
+}
+
+.skip-link {
+  position: fixed;
+  top: -100px;
+  left: 16px;
+  z-index: 30;
+  padding: 10px 16px;
+  background: #bfe6ff;
+  color: #05060a;
+  border-radius: 6px;
+  font-size: 13px;
+  text-decoration: none;
+  transition: top 0.2s ease;
+}
+
+.skip-link:focus {
+  top: 16px;
+}
+
+.navbar {
+  position: fixed;
+  top: 0; left: 0; width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24px 40px;
+  z-index: 10;
+  font-size: 13px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  /* Was fully transparent, so scrolling body copy read directly through
+     it once the sections below stopped being opaque. A glass strip keeps
+     it legible without hiding the particle field behind it. */
+  background: rgb(5 6 10 / 0.55);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(232, 241, 255, 0.1);
+}
+
+.navbar__links a {
+  font-family: var(--font-mono);
+  color: #e8f1ff;
+  text-decoration: none;
+  margin-left: 32px;
+}
+
+.stats-hud {
+  position: fixed;
+  bottom: 24px; right: 24px;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: #6f93b8;
+  text-align: right;
+}
+
+.content-section {
+  position: relative;
+  min-height: 100vh;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 0 40px;
+  /* Was fully opaque, hiding the fixed particle canvas underneath once
+     scrolled past the hero. Translucent + blurred keeps it legible while
+     letting the particle field read through for the rest of the page. */
+  background: rgb(5 6 10 / 0.6);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.projects__heading,
+.about__heading {
+  margin-top: 64px;
+  font-size: 13px;
+  letter-spacing: 0.15em;
+  color: #6f93b8;
+}
+
+.about__bio {
+  max-width: 640px;
+  margin-top: 16px;
+  font-size: 16px;
+  line-height: 1.7;
+  color: rgba(232, 241, 255, 0.75);
+}
+
+.about__skills {
+  max-width: 640px;
+  margin-top: 20px;
+}
+
+/* content-section is a stretch flex column; without align-self the anchor
+   spans full width and the whole row becomes clickable. */
+.about__cv-button {
+  align-self: flex-start;
+  margin-top: 24px;
+  padding: 12px 28px;
+  background: #bfe6ff;
+  border: 1px solid #bfe6ff;
+  border-radius: 999px;
+  color: #05060a;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.15em;
+  text-decoration: none;
+  transition: background 0.25s ease, border-color 0.25s ease;
+}
+
+.about__cv-button:hover,
+.about__cv-button:focus-visible {
+  background: var(--accent-dim);
+  border-color: var(--accent-dim);
+}
+
+.projects__list {
+  list-style: none;
+  margin-top: 16px;
+}
+
+.project-row {
+  padding: 28px 0;
+  border-top: 1px solid rgba(232, 241, 255, 0.15);
+}
+
+.project-row__link {
+  display: flex;
+  align-items: baseline;
+  gap: 24px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.project-row__head {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.project-row__live {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: #bfe6ff;
+  border: 1px solid rgba(191, 230, 255, 0.4);
+  border-radius: 999px;
+  padding: 3px 10px;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background 0.25s ease;
+}
+
+.project-row__live:hover,
+.project-row__live:focus-visible {
+  background: rgba(127, 169, 204, 0.14);
+}
+
+.icon-arrow {
+  width: 9px;
+  height: 9px;
+  margin-left: 3px;
+  vertical-align: -1px;
+}
+
+.project-row__num {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: #6f93b8;
+}
+
+.project-row__title {
+  position: relative;
+  font-family: var(--font-display);
+  font-size: clamp(24px, 4vw, 44px);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  transition: color 0.25s ease, transform 0.25s ease;
+}
+
+.project-row__title::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: -4px;
+  width: 100%;
+  height: 2px;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.3s ease;
+}
+
+.project-row:hover .project-row__title {
+  color: #bfe6ff;
+  transform: translateX(8px);
+}
+
+.project-row:focus-within .project-row__title {
+  color: #bfe6ff;
+  transform: translateX(8px);
+}
+
+.project-row:hover .project-row__title::after {
+  transform: scaleX(1);
+}
+
+.project-row:focus-within .project-row__title::after {
+  transform: scaleX(1);
+}
+
+.pill-list {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pill-list li {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: #6f93b8;
+  border: 1px solid rgba(111, 147, 184, 0.35);
+  border-radius: 999px;
+  padding: 3px 10px;
+}
+
+.project-row__tags li {
+  border: none;
+  background: rgba(111, 147, 184, 0.12);
+}
+
+.project-row__tags { margin-top: 10px; }
+
+.project-row__desc {
+  max-width: 640px;
+  margin-top: 12px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: rgba(232, 241, 255, 0.55);
+  transition: color 0.25s ease;
+}
+
+.project-row:hover .project-row__desc {
+  color: rgba(232, 241, 255, 0.85);
+}
+
+.project-row:focus-within .project-row__desc {
+  color: rgba(232, 241, 255, 0.85);
+}
+
+:root {
+  --scene-tint: rgb(42 51 56);
+  --font-display: 'Bricolage Grotesque Variable', 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'JetBrains Mono Variable', 'SF Mono', 'Consolas', monospace;
+  --accent: #bfe6ff;
+  --accent-dim: #7fa9cc;
+}
+
+/* Canvas is opaque, so the tint sits above it and screens onto the scene. */
+.scene-tint {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: radial-gradient(ellipse 80% 60% at 50% 40%, var(--scene-tint), transparent 75%);
+  mix-blend-mode: screen;
+}
+
+.atmosphere {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  pointer-events: none;
+}
+
+.atmosphere::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0.05;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+.atmosphere::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at center, transparent 55%, rgb(0 0 0 / 0.45) 100%);
+}
+
+/* Reduced-motion users get instant jumps; everyone else smooth-scrolls
+   the #contact anchor. */
+@media (prefers-reduced-motion: no-preference) {
+  html { scroll-behavior: smooth; }
+}
+
+.footer {
+  position: relative;
+  z-index: 5;
+  background: rgb(5 6 10 / 0.6);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  display: flex;
+  flex-direction: column;
+  padding: 96px 40px 48px;
+}
+
+.footer__heading {
+  font-family: var(--font-display);
+  font-size: clamp(32px, 6vw, 72px);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.footer__links {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 24px;
+}
+
+.footer__email {
+  font-size: clamp(18px, 3vw, 28px);
+  color: #bfe6ff;
+  text-decoration: none;
+}
+
+.footer__email:hover,
+.footer__email:focus-visible {
+  text-decoration: underline;
+}
+
+.footer__linkedin {
+  font-size: 13px;
+  letter-spacing: 0.15em;
+  color: #e8f1ff;
+  text-decoration: none;
+  transition: color 0.25s ease;
+}
+
+.footer__linkedin:hover,
+.footer__linkedin:focus-visible {
+  color: var(--accent-dim);
+}
+
+.footer__copyright {
+  margin-top: 48px;
+  font-size: 11px;
+  color: #6f93b8;
+}
+
+@media (max-width: 640px) {
+  .navbar { padding: 16px 20px; }
+  .hero-title h1 { font-size: 34px; }
+  .navbar__links a { margin-left: 14px; }
+  .stats-hud { display: none; }
+  .content-section { padding: 0 20px; }
+  .project-row__link { flex-direction: column; gap: 4px; }
+  .project-row:hover .project-row__title { transform: none; }
+  .footer { padding: 64px 20px 32px; }
+}
