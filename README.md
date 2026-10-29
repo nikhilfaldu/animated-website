@@ -16,3 +16,4 @@ npm run dev
 | `kage/` | Scroll-driven Three.js night walk through a Kyoto temple (static HTML — run `npx serve .` inside the folder) |
 | `oberlab-turbofan-scroll/` | Scroll-driven procedural jet engine that assembles and spools up, with synthesized sound (static HTML — run `npx serve .` inside the folder) |
 | `iron-man/` | Scroll-driven image-sequence hero with cinematic sections (Next.js, Framer Motion, Lenis) |
+| `frontenddesignbasics/` | Frontend design guide site — tools, principles and live demos (Next.js; uses pnpm: `pnpm install` then `pnpm dev`) |

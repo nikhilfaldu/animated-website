@@ -1,0 +1,155 @@
+@import 'tailwindcss';
+@import 'fumadocs-ui/css/neutral.css';
+@import 'fumadocs-ui/css/preset.css';
+
+/*
+ * v2: the journey. Mono ground (from BR95), a Win95 opening act, a crazy-colour finale.
+ * See DESIGN.md for the full contract.
+ */
+@font-face {
+  font-family: 'Web IBM VGA 8x16';
+  src: url('/fonts/web_ibm_vga_8x16.woff') format('woff');
+  font-display: swap;
+}
+@font-face {
+  font-family: 'MS Sans Serif Pixel';
+  src: url('/fonts/ms_sans_serif.woff2') format('woff2');
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'MS Sans Serif Pixel';
+  src: url('/fonts/ms_sans_serif_bold.woff2') format('woff2');
+  font-weight: 700;
+  font-display: swap;
+}
+
+@theme {
+  --font-sans: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-display), ui-serif, Georgia, serif;
+  --font-mono: var(--font-mono), ui-monospace, SFMono-Regular, monospace;
+  --font-pixel: 'Web IBM VGA 8x16', var(--font-mono), monospace;
+  --font-w95: 'MS Sans Serif Pixel', 'Web IBM VGA 8x16', sans-serif;
+
+  /* mono */
+  --color-v-bg: #080808;
+  --color-v-ink: #f5f5f5;
+  --color-v-soft: #b0b0b0;
+  --color-v-dim: #8a8a8a;
+  --color-v-line: #1a1a1a;
+  --color-v-steel: #2c2c2c;
+  --color-v-surface: #0e0e0e;
+
+  /* win95 (act 0) */
+  --color-w-desk: #2c2c2c;
+  --color-w-face: #c0c0c0;
+  --color-w-hi: #ffffff;
+  --color-w-shadow: #808080;
+  --color-w-dark: #000000;
+
+  /* crazy colour (finale) */
+  --color-c-1: #ff2e00;
+  --color-c-2: #ff00a8;
+  --color-c-3: #7b2cff;
+  --color-c-4: #00b3ff;
+  --color-c-5: #00e676;
+  --color-c-6: #ffe600;
+
+  --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out-cubic: cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+/* One dark mono theme everywhere (light and dark classes resolve the same). */
+:root,
+.dark {
+  --v-bg: #080808;
+  --v-ink: #f5f5f5;
+  --v-soft: #b0b0b0;
+  --v-dim: #8a8a8a;
+  --v-line: #1a1a1a;
+  --v-steel: #2c2c2c;
+  --v-surface: #0e0e0e;
+  --w-bevel-out: inset -1px -1px #000, inset 1px 1px #fff, inset -2px -2px #808080, inset 2px 2px #dfdfdf;
+  --w-bevel-in: inset -1px -1px #fff, inset 1px 1px #000, inset -2px -2px #dfdfdf, inset 2px 2px #808080;
+
+  --color-fd-background: #080808;
+  --color-fd-foreground: #f5f5f5;
+  --color-fd-muted: #121212;
+  --color-fd-muted-foreground: #9a9a9a;
+  --color-fd-popover: #0e0e0e;
+  --color-fd-popover-foreground: #f5f5f5;
+  --color-fd-card: #0e0e0e;
+  --color-fd-card-foreground: #f5f5f5;
+  --color-fd-border: #2c2c2c;
+  --color-fd-primary: #f5f5f5;
+  --color-fd-primary-foreground: #080808;
+  --color-fd-secondary: #121212;
+  --color-fd-secondary-foreground: #f5f5f5;
+  --color-fd-accent: #1a1a1a;
+  --color-fd-accent-foreground: #f5f5f5;
+  --color-fd-ring: #f5f5f5;
+
+  /* legacy names used by v1 components; kept mono */
+  --surface: #080808;
+  --surface-raised: #0e0e0e;
+  --text: #f5f5f5;
+  --text-soft: #9a9a9a;
+  --rule: #2c2c2c;
+  --accent: #f5f5f5;
+  --accent-ink: #080808;
+  color-scheme: dark;
+}
+
+html {
+  scrollbar-gutter: stable;
+  background: var(--v-bg);
+}
+
+html > body[data-scroll-locked] {
+  margin-right: 0px !important;
+  --removed-body-scroll-bar-size: 0px !important;
+}
+
+body {
+  background: var(--v-bg);
+  color: var(--v-ink);
+}
+
+/* Pixel type: crisp, never smoothed. Sizes are multiples of 16px. */
+.pixel,
+[data-pixel] {
+  font-family: var(--font-pixel);
+  -webkit-font-smoothing: none;
+  font-smooth: never;
+  letter-spacing: 0;
+}
+
+/* Docs headings: pixel font, uppercase-free, crisp. */
+.prose :where(h1, h2, h3):not(:where(.not-prose *)),
+[data-display] {
+  font-family: var(--font-pixel);
+  font-weight: 400;
+  letter-spacing: 0;
+  -webkit-font-smoothing: none;
+}
+
+.prose {
+  --tw-prose-body: #d6d6d6;
+}
+
+::selection {
+  background: #f5f5f5;
+  color: #080808;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

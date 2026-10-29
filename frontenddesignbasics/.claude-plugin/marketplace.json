@@ -1,0 +1,15 @@
+{
+  "name": "frontenddesignbasics",
+  "description": "Plugins from Frontend Design Basics, the guide to complete, beautiful web design.",
+  "owner": {
+    "name": "br9704",
+    "url": "https://github.com/br9704"
+  },
+  "plugins": [
+    {
+      "name": "frontend-design-basics",
+      "source": "./plugins/frontend-design-basics",
+      "description": "A design pass for any web UI: brand intake, quick visual audit with scored suggestions, you pick, it applies them and proves the result with before and after screenshots and motion frames."
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "name": "frontend-design-basics",
+  "displayName": "Frontend Design Basics",
+  "version": "1.0.0",
+  "description": "A design pass for any web UI: brand intake, quick visual audit with scored suggestions, you pick, it applies them and proves the result with before and after screenshots and motion frames. Bundles a 51-tool design toolkit.",
+  "author": {
+    "name": "br9704",
+    "url": "https://github.com/br9704"
+  },
+  "homepage": "https://frontenddesignbasics.vercel.app",
+  "repository": "https://github.com/br9704/frontenddesignbasics",
+  "license": "MIT",
+  "keywords": ["design", "frontend", "ui", "polish", "motion", "accessibility"]
+}
