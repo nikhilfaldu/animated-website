@@ -1,0 +1,1453 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="description" content="An interactive procedural jungle canopy built with Three.js and GSAP." />
+  <title>Jungle Cursor Canopy</title>
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #020805; }
+    body { cursor: none; touch-action: none; font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
+    #stage, #stage canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+    #glass {
+      position: fixed; inset: 0; z-index: 2; pointer-events: none;
+      background:
+        radial-gradient(circle at var(--mx, 50%) var(--my, 50%), transparent 0 12%, rgba(1, 8, 4, .04) 27%, rgba(0, 4, 2, .34) 78%, rgba(0, 2, 1, .78) 115%),
+        linear-gradient(112deg, rgba(180, 220, 166, .025), transparent 38%, rgba(0, 0, 0, .08));
+      box-shadow: inset 0 0 11vw rgb(0 4 1 / var(--vignette-alpha, .82));
+    }
+    #glass::before {
+      content: ""; position: absolute; inset: 0; opacity: var(--dither-intensity, .16); mix-blend-mode: overlay;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.82' numOctaves='3' seed='41' stitchTiles='stitch'/%3E%3CfeComponentTransfer%3E%3CfeFuncR type='linear' slope='1.35' intercept='-.175'/%3E%3CfeFuncG type='linear' slope='1.35' intercept='-.175'/%3E%3CfeFuncB type='linear' slope='1.35' intercept='-.175'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      background-size: 180px 180px;
+    }
+    #cursor {
+      position: fixed; z-index: 4; width: 13px; height: 13px; margin: -6.5px 0 0 -6.5px;
+      border: 1px solid rgba(225, 245, 214, .7); border-radius: 50%; pointer-events: none;
+      box-shadow: 0 0 18px rgba(181, 222, 160, .22), inset 0 0 5px rgba(255,255,255,.15);
+      transform: translate3d(var(--cx, 50vw), var(--cy, 50vh), 0); transition: opacity .3s;
+    }
+    #cursor::after { content: ""; position: absolute; inset: 4px; border-radius: 50%; background: rgba(233, 255, 223, .65); }
+    #label {
+      position: fixed; left: max(20px, env(safe-area-inset-left)); bottom: max(19px, env(safe-area-inset-bottom)); z-index: 3;
+      color: rgba(210, 227, 202, .62); pointer-events: none; text-transform: uppercase;
+      letter-spacing: .22em; font-size: 9px; line-height: 1.8; text-shadow: 0 1px 8px #000;
+    }
+    #label b { color: rgba(232, 245, 226, .88); font-weight: 500; }
+    #hint {
+      position: fixed; right: 20px; bottom: 19px; z-index: 3; color: rgba(201, 219, 193, .38);
+      font: 9px/1.5 ui-monospace, monospace; letter-spacing: .12em; text-transform: uppercase; pointer-events: none;
+      transition: opacity 1s;
+    }
+    #landing { position: fixed; inset: 0; z-index: 5; display: grid; place-items: center; pointer-events: none; }
+    .landing-content { position: relative; z-index: 1; width: min(460px, calc(100vw - 48px)); text-align: center; color: #dce7d6; opacity: 0; pointer-events: none; text-shadow: 0 2px 22px rgba(0,0,0,.55); }
+    .content-state { width: 100%; }
+    .thanks-state { position: absolute; inset: 50% 0 auto; transform: translateY(-50%); visibility: hidden; opacity: 0; }
+    .landing-eyebrow { margin: 0 0 12px; font: 600 10px/1 ui-monospace, monospace; letter-spacing: .28em; text-transform: uppercase; opacity: .65; }
+    .landing-title { margin: 0 0 var(--content-button-gap, 20px); font: 500 clamp(42px, 7vw, 82px)/.9 Georgia, serif; letter-spacing: -.06em; }
+    .landing-subtitle { margin: 18px auto 25px; font: 500 14px/1.45 Inter, system-ui, sans-serif; white-space: nowrap; }
+    #landing-cta, #landing-back { display: inline-flex; align-items: center; justify-content: center; min-height: 42px; border: 0; border-radius: 999px; padding: 1px 19px 0; color: #f6ead1; background: #243d1e; font: 600 11px/1 ui-monospace, monospace; letter-spacing: .12em; text-transform: uppercase; cursor: pointer; box-shadow: 0 10px 28px rgba(31,52,25,.22); transition: transform .25s ease, background .25s ease; }
+    #landing-cta:hover, #landing-back:hover { transform: translateY(-2px) scale(1.035); background: #112c16; }
+    .thanks-copy h2 { margin: 0 0 var(--content-button-gap, 20px); font: 500 clamp(30px, 4.5vw, 48px)/1.02 Georgia, serif; letter-spacing: -.045em; }
+    .thanks-copy p { margin: 0 0 25px; font: 500 14px/1.45 Inter, system-ui, sans-serif; }
+    #controls {
+      --panel-line: rgba(205, 230, 196, .11);
+      position: fixed; z-index: 8; top: 14px; right: 14px; width: min(306px, calc(100vw - 28px));
+      max-height: calc(100vh - 28px); overflow: auto; overscroll-behavior: contain;
+      color: #cbd9c5; background: rgba(4, 12, 8, .84); border: 1px solid rgba(207, 231, 197, .16);
+      border-radius: 10px; box-shadow: 0 22px 70px rgba(0, 0, 0, .48), inset 0 1px rgba(255,255,255,.025);
+      backdrop-filter: blur(18px) saturate(1.08); -webkit-backdrop-filter: blur(18px) saturate(1.08);
+      font: 10px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; cursor: auto;
+      scrollbar-width: thin; scrollbar-color: #3b5140 transparent;
+    }
+    #controls.collapsed { width: auto; overflow: hidden; }
+    #controls.collapsed .controls-body, #controls.collapsed .controls-footer, #controls.collapsed .perf-readout { display: none; }
+    .controls-head { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 10px; padding: 11px 12px; background: rgba(4, 12, 8, .94); border-bottom: 1px solid var(--panel-line); }
+    .controls-title { flex: 1; color: #edf4e9; font-size: 10px; letter-spacing: .17em; text-transform: uppercase; }
+    .perf-readout { color: #7f9d84; font-size: 9px; font-variant-numeric: tabular-nums; }
+    #panel-toggle { width: 24px; height: 24px; padding: 0; border-radius: 5px; border: 1px solid var(--panel-line); color: #b8cbb4; background: rgba(255,255,255,.025); cursor: pointer; }
+    .control-section { border-bottom: 1px solid var(--panel-line); }
+    .control-section summary { padding: 10px 12px 8px; color: #8eaa90; letter-spacing: .14em; text-transform: uppercase; cursor: pointer; user-select: none; list-style: none; }
+    .control-section summary::-webkit-details-marker { display: none; }
+    .control-section summary::after { content: '+'; float: right; color: #58705c; }
+    .control-section[open] summary::after { content: '−'; }
+    .control-grid { display: grid; gap: 8px; padding: 1px 12px 12px; }
+    .control-row { display: grid; grid-template-columns: 88px 1fr 43px; gap: 8px; align-items: center; min-height: 20px; }
+    .control-row.wide { grid-template-columns: 88px 1fr; }
+    .control-row label { color: #aebfad; white-space: nowrap; }
+    .control-row output { color: #6f8b73; text-align: right; font-variant-numeric: tabular-nums; }
+    .control-help { margin: -1px 0 3px; color: #617865; font-size: 9px; line-height: 1.45; }
+    #controls input[type="range"] { width: 100%; height: 2px; margin: 0; accent-color: #8faa84; cursor: ew-resize; }
+    #controls input[type="checkbox"] { justify-self: end; accent-color: #89a784; }
+    #controls input[type="color"] { width: 100%; height: 25px; padding: 2px; border: 1px solid var(--panel-line); border-radius: 4px; background: #0b1710; cursor: pointer; }
+    #controls select { width: 100%; height: 25px; padding: 0 6px; color: #c9d8c4; background: #0b1710; border: 1px solid var(--panel-line); border-radius: 4px; font: inherit; }
+    .controls-footer { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; padding: 10px 12px 12px; }
+    .controls-footer button { min-height: 28px; color: #9fb49d; background: rgba(255,255,255,.025); border: 1px solid var(--panel-line); border-radius: 5px; font: inherit; cursor: pointer; }
+    .controls-footer button:hover, #panel-toggle:hover { color: #eef6ea; background: rgba(190, 224, 180, .08); }
+    #fallback { display: none; color: #dbe8d5; padding: 2rem; }
+    @media (pointer: coarse) { body { cursor: auto; } #cursor { display: none; } }
+    @media (max-width: 640px) { #controls { top: 8px; right: 8px; max-height: calc(100vh - 16px); } #controls:not(.collapsed) { width: min(296px, calc(100vw - 16px)); } }
+    @media (prefers-reduced-motion: reduce) { #glass::before { animation: none; } }
+  </style>
+</head>
+<body>
+  <div id="stage"></div>
+  <div id="glass"></div>
+  <div id="cursor"></div>
+  <div id="label"><b>Understory</b><br>move slowly through the canopy</div>
+  <div id="hint">press &amp; hold · deeper wake</div>
+  <main id="landing" aria-live="polite"><section class="landing-content" id="landing-content"><div class="content-state intro-state"><p class="landing-eyebrow">A living interface</p><h1 class="landing-title">Understory</h1><button id="landing-cta" type="button">Enter the clearing</button></div><div class="content-state thanks-state"><div class="thanks-copy"><h2>The canopy has made<br>space for you.</h2></div><button id="landing-back" type="button">Alright</button></div></section></main>
+  <aside id="controls" aria-label="Understory parameters">
+    <div class="controls-head">
+      <span class="controls-title">Canopy parameters</span>
+      <span class="perf-readout"><span id="fps">--</span> fps</span>
+      <button id="panel-toggle" type="button" aria-label="Collapse parameter panel">−</button>
+    </div>
+    <div class="controls-body">
+      <details class="control-section" open>
+        <summary>Quality / performance</summary>
+        <div class="control-grid">
+          <div class="control-row wide"><label for="qualityPreset">Preset</label><select id="qualityPreset" data-param="qualityPreset"><option value="eco">Eco</option><option value="balanced">Balanced</option><option value="high">High</option><option value="cinematic">Cinematic</option><option value="custom">Custom</option></select></div>
+          <div class="control-row"><label for="renderScale">Render scale</label><input id="renderScale" data-param="renderScale" type="range" min="0.45" max="1.35" step="0.05"><output data-output="renderScale"></output></div>
+          <div class="control-row wide"><label for="shadowSize">Shadows</label><select id="shadowSize" data-param="shadowSize"><option value="0">Off</option><option value="512">Low · 512</option><option value="1024">Medium · 1K</option><option value="2048">High · 2K</option><option value="4096">Ultra · 4K</option></select></div>
+          <div class="control-row wide"><label for="fpsLimit">FPS limit</label><select id="fpsLimit" data-param="fpsLimit"><option value="30">30 fps</option><option value="45">45 fps</option><option value="60">60 fps</option><option value="120">120 fps</option></select></div>
+          <div class="control-row"><label for="dustAmount">Air motes</label><input id="dustAmount" data-param="dustAmount" type="range" min="0" max="1" step="0.05"><output data-output="dustAmount"></output></div>
+          <p class="control-help">Tiny drifting dust/pollen points that catch the light. Subtle unless the background is dark.</p>
+          <div class="control-row wide"><label for="adaptive">Adaptive scale</label><input id="adaptive" data-param="adaptive" type="checkbox"></div>
+        </div>
+      </details>
+      <details class="control-section">
+        <summary>Air motes</summary>
+        <div class="control-grid">
+          <div class="control-row wide"><label for="moteColor">Colour</label><input id="moteColor" data-param="moteColor" type="color"></div>
+          <div class="control-row"><label for="moteCount">Count</label><input id="moteCount" data-param="moteCount" type="range" min="50" max="1600" step="25"><output data-output="moteCount"></output></div>
+          <div class="control-row"><label for="moteSize">Size</label><input id="moteSize" data-param="moteSize" type="range" min="0.01" max="0.12" step="0.002"><output data-output="moteSize"></output></div>
+          <div class="control-row"><label for="moteGlow">Glow</label><input id="moteGlow" data-param="moteGlow" type="range" min="0" max="3" step="0.05"><output data-output="moteGlow"></output></div>
+          <div class="control-row"><label for="moteFloatSpeed">Float speed</label><input id="moteFloatSpeed" data-param="moteFloatSpeed" type="range" min="0" max="3" step="0.05"><output data-output="moteFloatSpeed"></output></div>
+          <div class="control-row"><label for="moteTiltFollow">Tilt follow</label><input id="moteTiltFollow" data-param="moteTiltFollow" type="range" min="0" max="1.5" step="0.05"><output data-output="moteTiltFollow"></output></div>
+          <div class="control-row"><label for="moteLiftDistance">CTA lift</label><input id="moteLiftDistance" data-param="moteLiftDistance" type="range" min="0" max="12" step="0.1"><output data-output="moteLiftDistance"></output></div>
+          <div class="control-row"><label for="moteVortexStrength">Vortex pull</label><input id="moteVortexStrength" data-param="moteVortexStrength" type="range" min="0" max="3" step="0.05"><output data-output="moteVortexStrength"></output></div>
+          <div class="control-row"><label for="moteVortexRadius">Vortex radius</label><input id="moteVortexRadius" data-param="moteVortexRadius" type="range" min="0.8" max="6" step="0.1"><output data-output="moteVortexRadius"></output></div>
+          <div class="control-row"><label for="moteVortexSpin">Vortex spin</label><input id="moteVortexSpin" data-param="moteVortexSpin" type="range" min="-2" max="2" step="0.05"><output data-output="moteVortexSpin"></output></div>
+        </div>
+      </details>
+      <details class="control-section" open>
+        <summary>Foliage</summary>
+        <div class="control-grid">
+          <div class="control-row"><label for="density">Density</label><input id="density" data-param="density" type="range" min="0.2" max="5" step="0.05"><output data-output="density"></output></div>
+          <div class="control-row"><label for="leafSize">Leaf size</label><input id="leafSize" data-param="leafSize" type="range" min="0.45" max="1.65" step="0.01"><output data-output="leafSize"></output></div>
+          <div class="control-row"><label for="sizeNoise">Size noise</label><input id="sizeNoise" data-param="sizeNoise" type="range" min="0" max="2" step="0.02"><output data-output="sizeNoise"></output></div>
+          <div class="control-row"><label for="spread">Layer spread</label><input id="spread" data-param="spread" type="range" min="0.55" max="1.55" step="0.01"><output data-output="spread"></output></div>
+          <div class="control-row"><label for="surfaceDetail">Surface detail</label><input id="surfaceDetail" data-param="surfaceDetail" type="range" min="0" max="2.5" step="0.05"><output data-output="surfaceDetail"></output></div>
+          <div class="control-row"><label for="textureNoise">Texture noise</label><input id="textureNoise" data-param="textureNoise" type="range" min="0" max="2" step="0.02"><output data-output="textureNoise"></output></div>
+          <div class="control-row"><label for="shapeNoise">Shape noise</label><input id="shapeNoise" data-param="shapeNoise" type="range" min="0" max="2.5" step="0.05"><output data-output="shapeNoise"></output></div>
+          <div class="control-row"><label for="photoTexture">Photo texture</label><input id="photoTexture" data-param="photoTexture" type="range" min="0" max="1.5" step="0.02"><output data-output="photoTexture"></output></div>
+          <div class="control-row"><label for="leafThickness">Thickness</label><input id="leafThickness" data-param="leafThickness" type="range" min="0" max="0.08" step="0.002"><output data-output="leafThickness"></output></div>
+          <div class="control-row"><label for="wetness">Wetness</label><input id="wetness" data-param="wetness" type="range" min="0" max="1" step="0.01"><output data-output="wetness"></output></div>
+          <div class="control-row"><label for="restDepthCompression">Plane proximity</label><input id="restDepthCompression" data-param="restDepthCompression" type="range" min="0" max="1" step="0.02"><output data-output="restDepthCompression"></output></div>
+        </div>
+      </details>
+      <details class="control-section" open>
+        <summary>Leaf physics</summary>
+        <div class="control-grid">
+          <div class="control-row wide"><label for="physicsEnabled">Enable physics</label><input id="physicsEnabled" data-param="physicsEnabled" type="checkbox"></div>
+          <div class="control-row"><label for="collisionStrength">Collision force</label><input id="collisionStrength" data-param="collisionStrength" type="range" min="0" max="2.5" step="0.05"><output data-output="collisionStrength"></output></div>
+          <div class="control-row"><label for="collisionRadius">Collider size</label><input id="collisionRadius" data-param="collisionRadius" type="range" min="0.3" max="1.4" step="0.02"><output data-output="collisionRadius"></output></div>
+          <div class="control-row"><label for="physicsGravity">Gravity</label><input id="physicsGravity" data-param="physicsGravity" type="range" min="0" max="3" step="0.05"><output data-output="physicsGravity"></output></div>
+          <div class="control-row"><label for="physicsSettle">Settling</label><input id="physicsSettle" data-param="physicsSettle" type="range" min="0.15" max="2" step="0.05"><output data-output="physicsSettle"></output></div>
+          <div class="control-row"><label for="cursorLift">Cursor lift</label><input id="cursorLift" data-param="cursorLift" type="range" min="0" max="2.5" step="0.05"><output data-output="cursorLift"></output></div>
+          <p class="control-help">Fast disc colliders approximate contact. This is intentionally lighter than full deformable-leaf rigid-body physics.</p>
+        </div>
+      </details>
+      <details class="control-section" open>
+        <summary>Landing sequence</summary>
+        <div class="control-grid">
+          <div class="control-row wide"><label for="introEnabled">Play intro</label><input id="introEnabled" data-param="introEnabled" type="checkbox"></div>
+          <div class="control-row"><label for="introDelay">Delay</label><input id="introDelay" data-param="introDelay" type="range" min="0" max="4" step="0.1"><output data-output="introDelay"></output></div>
+          <div class="control-row"><label for="introDuration">Landing time</label><input id="introDuration" data-param="introDuration" type="range" min="1" max="12" step="0.1"><output data-output="introDuration"></output></div>
+          <div class="control-row"><label for="introDistance">Start distance</label><input id="introDistance" data-param="introDistance" type="range" min="4" max="30" step="0.5"><output data-output="introDistance"></output></div>
+          <div class="control-row"><label for="twirlTurns">Twirl turns</label><input id="twirlTurns" data-param="twirlTurns" type="range" min="0" max="5" step="0.1"><output data-output="twirlTurns"></output></div>
+          <div class="control-row"><label for="centerClearRadius">Clear center</label><input id="centerClearRadius" data-param="centerClearRadius" type="range" min="1" max="7" step="0.1"><output data-output="centerClearRadius"></output></div>
+          <div class="control-row"><label for="contentDelay">Content delay</label><input id="contentDelay" data-param="contentDelay" type="range" min="0" max="3" step="0.1"><output data-output="contentDelay"></output></div>
+          <div class="control-row"><label for="contentDuration">Content ease</label><input id="contentDuration" data-param="contentDuration" type="range" min="0.3" max="2" step="0.05"><output data-output="contentDuration"></output></div>
+          <div class="control-row"><label for="contentButtonGap">Button gap</label><input id="contentButtonGap" data-param="contentButtonGap" type="range" min="0" max="60" step="1"><output data-output="contentButtonGap"></output></div>
+          <div class="control-row"><label for="ctaLiftDistance">CTA lift</label><input id="ctaLiftDistance" data-param="ctaLiftDistance" type="range" min="0" max="8" step="0.1"><output data-output="ctaLiftDistance"></output></div>
+          <div class="control-row"><label for="ctaLiftDuration">Lift time</label><input id="ctaLiftDuration" data-param="ctaLiftDuration" type="range" min="0.2" max="4" step="0.05"><output data-output="ctaLiftDuration"></output></div>
+          <div class="control-row"><label for="leafStagger">Leaf stagger</label><input id="leafStagger" data-param="leafStagger" type="range" min="0" max="0.03" step="0.001"><output data-output="leafStagger"></output></div>
+          <div class="control-row"><label for="dreamFloat">Dream float</label><input id="dreamFloat" data-param="dreamFloat" type="range" min="0" max="1" step="0.02"><output data-output="dreamFloat"></output></div>
+          <div class="control-row"><label for="exitDuration">Fly-past time</label><input id="exitDuration" data-param="exitDuration" type="range" min="0.5" max="6" step="0.1"><output data-output="exitDuration"></output></div>
+          <div class="control-row"><label for="exitDistance">Fly-past dist.</label><input id="exitDistance" data-param="exitDistance" type="range" min="10" max="55" step="1"><output data-output="exitDistance"></output></div>
+          <div class="control-row"><label for="exitTwist">Fly-past twist</label><input id="exitTwist" data-param="exitTwist" type="range" min="0" max="8" step="0.1"><output data-output="exitTwist"></output></div>
+        </div>
+      </details>
+      <details class="control-section" open>
+        <summary>Wind</summary>
+        <div class="control-grid">
+          <div class="control-row"><label for="windStrength">Strength</label><input id="windStrength" data-param="windStrength" type="range" min="0" max="2.5" step="0.02"><output data-output="windStrength"></output></div>
+          <div class="control-row"><label for="windSpeed">Speed</label><input id="windSpeed" data-param="windSpeed" type="range" min="0.1" max="2.5" step="0.02"><output data-output="windSpeed"></output></div>
+          <div class="control-row"><label for="turbulence">Turbulence</label><input id="turbulence" data-param="turbulence" type="range" min="0" max="2.5" step="0.02"><output data-output="turbulence"></output></div>
+        </div>
+      </details>
+      <details class="control-section" open>
+        <summary>Depth of field</summary>
+        <div class="control-grid">
+          <div class="control-row wide"><label for="dofEnabled">High quality DOF</label><input id="dofEnabled" data-param="dofEnabled" type="checkbox"></div>
+          <div class="control-row"><label for="dofFocus">Focus distance</label><input id="dofFocus" data-param="dofFocus" type="range" min="1" max="22" step="0.1"><output data-output="dofFocus"></output></div>
+          <div class="control-row"><label for="dofAperture">Aperture</label><input id="dofAperture" data-param="dofAperture" type="range" min="0" max="0.008" step="0.0001"><output data-output="dofAperture"></output></div>
+          <div class="control-row"><label for="dofMaxBlur">Max blur</label><input id="dofMaxBlur" data-param="dofMaxBlur" type="range" min="0" max="0.03" step="0.001"><output data-output="dofMaxBlur"></output></div>
+        </div>
+      </details>
+      <details class="control-section">
+        <summary>Camera</summary>
+        <div class="control-grid">
+          <div class="control-row"><label for="cameraYaw">Yaw</label><input id="cameraYaw" data-param="cameraYaw" type="range" min="-35" max="35" step="0.5"><output data-output="cameraYaw"></output></div>
+          <div class="control-row"><label for="cameraPitch">Pitch</label><input id="cameraPitch" data-param="cameraPitch" type="range" min="-25" max="25" step="0.5"><output data-output="cameraPitch"></output></div>
+          <div class="control-row"><label for="cameraRoll">Roll</label><input id="cameraRoll" data-param="cameraRoll" type="range" min="-12" max="12" step="0.25"><output data-output="cameraRoll"></output></div>
+          <div class="control-row"><label for="cameraDistance">Distance</label><input id="cameraDistance" data-param="cameraDistance" type="range" min="7" max="16" step="0.1"><output data-output="cameraDistance"></output></div>
+          <div class="control-row"><label for="cursorTiltStrength">Cursor tilt</label><input id="cursorTiltStrength" data-param="cursorTiltStrength" type="range" min="-14" max="14" step="0.25"><output data-output="cursorTiltStrength"></output></div>
+          <div class="control-row"><label for="cursorTiltEase">Tilt easing</label><input id="cursorTiltEase" data-param="cursorTiltEase" type="range" min="1" max="20" step="0.25"><output data-output="cursorTiltEase"></output></div>
+        </div>
+      </details>
+      <details class="control-section">
+        <summary>Cursor wake</summary>
+        <div class="control-grid">
+          <div class="control-row"><label for="wakeRadius">Radius</label><input id="wakeRadius" data-param="wakeRadius" type="range" min="0.35" max="2" step="0.02"><output data-output="wakeRadius"></output></div>
+          <div class="control-row"><label for="wakeForce">Push force</label><input id="wakeForce" data-param="wakeForce" type="range" min="0.2" max="2.2" step="0.02"><output data-output="wakeForce"></output></div>
+          <div class="control-row"><label for="leanForce">Lean</label><input id="leanForce" data-param="leanForce" type="range" min="0" max="2.2" step="0.02"><output data-output="leanForce"></output></div>
+          <div class="control-row"><label for="spring">Spring</label><input id="spring" data-param="spring" type="range" min="8" max="100" step="1"><output data-output="spring"></output></div>
+          <div class="control-row"><label for="damping">Damping</label><input id="damping" data-param="damping" type="range" min="2" max="25" step="0.5"><output data-output="damping"></output></div>
+          <div class="control-row"><label for="pressDepth">Press depth</label><input id="pressDepth" data-param="pressDepth" type="range" min="0" max="2" step="0.02"><output data-output="pressDepth"></output></div>
+        </div>
+      </details>
+      <details class="control-section">
+        <summary>Atmosphere</summary>
+        <div class="control-grid">
+          <div class="control-row"><label for="exposure">Exposure</label><input id="exposure" data-param="exposure" type="range" min="0.45" max="1.8" step="0.01"><output data-output="exposure"></output></div>
+          <div class="control-row"><label for="ambientLight">Ambient</label><input id="ambientLight" data-param="ambientLight" type="range" min="0" max="2" step="0.02"><output data-output="ambientLight"></output></div>
+          <div class="control-row"><label for="fogDensity">Fog</label><input id="fogDensity" data-param="fogDensity" type="range" min="0" max="0.14" step="0.002"><output data-output="fogDensity"></output></div>
+          <div class="control-row"><label for="ditherIntensity">Dither</label><input id="ditherIntensity" data-param="ditherIntensity" type="range" min="0" max="0.5" step="0.005"><output data-output="ditherIntensity"></output></div>
+          <div class="control-row"><label for="vignette">Vignette</label><input id="vignette" data-param="vignette" type="range" min="0" max="1.5" step="0.02"><output data-output="vignette"></output></div>
+        </div>
+      </details>
+      <details class="control-section" open>
+        <summary>Key light</summary>
+        <div class="control-grid">
+          <div class="control-row wide"><label for="sunColor">Colour</label><input id="sunColor" data-param="sunColor" type="color"></div>
+          <div class="control-row"><label for="sunLight">Intensity</label><input id="sunLight" data-param="sunLight" type="range" min="0" max="10" step="0.05"><output data-output="sunLight"></output></div>
+          <div class="control-row"><label for="sunX">Position X</label><input id="sunX" data-param="sunX" type="range" min="-15" max="15" step="0.1"><output data-output="sunX"></output></div>
+          <div class="control-row"><label for="sunY">Position Y</label><input id="sunY" data-param="sunY" type="range" min="-15" max="15" step="0.1"><output data-output="sunY"></output></div>
+          <div class="control-row"><label for="sunZ">Position Z</label><input id="sunZ" data-param="sunZ" type="range" min="-15" max="15" step="0.1"><output data-output="sunZ"></output></div>
+          <div class="control-row"><label for="sunTargetX">Target X</label><input id="sunTargetX" data-param="sunTargetX" type="range" min="-10" max="10" step="0.1"><output data-output="sunTargetX"></output></div>
+          <div class="control-row"><label for="sunTargetY">Target Y</label><input id="sunTargetY" data-param="sunTargetY" type="range" min="-10" max="10" step="0.1"><output data-output="sunTargetY"></output></div>
+          <div class="control-row"><label for="sunTargetZ">Target Z</label><input id="sunTargetZ" data-param="sunTargetZ" type="range" min="-12" max="8" step="0.1"><output data-output="sunTargetZ"></output></div>
+        </div>
+      </details>
+      <details class="control-section" open>
+        <summary>Fill light</summary>
+        <div class="control-grid">
+          <div class="control-row wide"><label for="fillColor">Colour</label><input id="fillColor" data-param="fillColor" type="color"></div>
+          <div class="control-row"><label for="fillLight">Intensity</label><input id="fillLight" data-param="fillLight" type="range" min="0" max="10" step="0.05"><output data-output="fillLight"></output></div>
+          <div class="control-row"><label for="fillX">Position X</label><input id="fillX" data-param="fillX" type="range" min="-15" max="15" step="0.1"><output data-output="fillX"></output></div>
+          <div class="control-row"><label for="fillY">Position Y</label><input id="fillY" data-param="fillY" type="range" min="-15" max="15" step="0.1"><output data-output="fillY"></output></div>
+          <div class="control-row"><label for="fillZ">Position Z</label><input id="fillZ" data-param="fillZ" type="range" min="-15" max="15" step="0.1"><output data-output="fillZ"></output></div>
+          <div class="control-row"><label for="fillTargetX">Target X</label><input id="fillTargetX" data-param="fillTargetX" type="range" min="-10" max="10" step="0.1"><output data-output="fillTargetX"></output></div>
+          <div class="control-row"><label for="fillTargetY">Target Y</label><input id="fillTargetY" data-param="fillTargetY" type="range" min="-10" max="10" step="0.1"><output data-output="fillTargetY"></output></div>
+          <div class="control-row"><label for="fillTargetZ">Target Z</label><input id="fillTargetZ" data-param="fillTargetZ" type="range" min="-12" max="8" step="0.1"><output data-output="fillTargetZ"></output></div>
+        </div>
+      </details>
+      <details class="control-section">
+        <summary>Advanced shadows</summary>
+        <div class="control-grid">
+          <div class="control-row"><label for="shadowSoftness">Softness</label><input id="shadowSoftness" data-param="shadowSoftness" type="range" min="0" max="12" step="0.25"><output data-output="shadowSoftness"></output></div>
+          <div class="control-row"><label for="shadowBias">Bias</label><input id="shadowBias" data-param="shadowBias" type="range" min="-0.005" max="0.005" step="0.00005"><output data-output="shadowBias"></output></div>
+          <div class="control-row"><label for="shadowNormalBias">Normal bias</label><input id="shadowNormalBias" data-param="shadowNormalBias" type="range" min="0" max="0.15" step="0.0025"><output data-output="shadowNormalBias"></output></div>
+          <div class="control-row"><label for="shadowArea">Coverage</label><input id="shadowArea" data-param="shadowArea" type="range" min="4" max="20" step="0.25"><output data-output="shadowArea"></output></div>
+          <div class="control-row wide"><label for="fillShadows">Fill shadows</label><input id="fillShadows" data-param="fillShadows" type="checkbox"></div>
+        </div>
+      </details>
+    </div>
+    <div class="controls-footer"><button id="replay-sequence" type="button">Replay</button><button id="reset-params" type="button">Reset</button><button id="copy-params" type="button">Copy JSON</button></div>
+  </aside>
+  <div id="fallback">WebGL is required for this experiment.</div>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
+    import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+    import { BokehPass } from 'three/examples/jsm/postprocessing/BokehPass.js';
+    import { gsap } from 'gsap';
+
+    const stage = document.querySelector('#stage');
+    const cursorEl = document.querySelector('#cursor');
+    const glassEl = document.querySelector('#glass');
+    const hintEl = document.querySelector('#hint');
+    const controlsEl = document.querySelector('#controls');
+    const fpsEl = document.querySelector('#fps');
+    const landingEl = document.querySelector('#landing');
+    const landingContentEl = document.querySelector('#landing-content');
+    const landingCtaEl = document.querySelector('#landing-cta');
+    const landingBackEl = document.querySelector('#landing-back');
+    const introStateEl = document.querySelector('.intro-state');
+    const thanksStateEl = document.querySelector('.thanks-state');
+    const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const coarse = matchMedia('(pointer: coarse)').matches;
+
+    const defaultParams = Object.freeze({
+      qualityPreset: 'custom',
+      renderScale: .7,
+      shadowSize: 4096,
+      fpsLimit: 60,
+      dustAmount: 1,
+      moteColor: '#daf9b4',
+      moteCount: 1600,
+      moteSize: .1,
+      moteGlow: 3,
+      moteFloatSpeed: 1.55,
+      moteTiltFollow: .6,
+      moteLiftDistance: 8,
+      moteVortexStrength: .05,
+      moteVortexRadius: 2.8,
+      moteVortexSpin: .05,
+      adaptive: true,
+      density: 5,
+      leafSize: .56,
+      sizeNoise: 2,
+      spread: 1.24,
+      surfaceDetail: 2.5,
+      textureNoise: 2,
+      shapeNoise: 2.5,
+      photoTexture: 1.5,
+      leafThickness: 0,
+      wetness: .73,
+      restDepthCompression: .78,
+      physicsEnabled: false,
+      collisionStrength: 2.5,
+      collisionRadius: 1.4,
+      physicsGravity: 3,
+      physicsSettle: 2,
+      cursorLift: 2.5,
+      windStrength: 2.5,
+      windSpeed: 1.06,
+      turbulence: .8,
+      introEnabled: true,
+      introDelay: 0,
+      introDuration: 3.6,
+      introDistance: 17,
+      twirlTurns: 1.35,
+      centerClearRadius: 5.4,
+      contentDelay: 1.3,
+      contentDuration: 1,
+      contentButtonGap: 20,
+      ctaLiftDistance: 8,
+      ctaLiftDuration: .5,
+      leafStagger: 0,
+      dreamFloat: 1,
+      exitDuration: 3.2,
+      exitDistance: 34,
+      exitTwist: 3.6,
+      dofEnabled: true,
+      dofFocus: 18,
+      dofAperture: .0021,
+      dofMaxBlur: .009,
+      cameraYaw: 0,
+      cameraPitch: 0,
+      cameraRoll: 0,
+      cameraDistance: 13.6,
+      cursorTiltStrength: 12.5,
+      cursorTiltEase: 3,
+      wakeRadius: 1.99,
+      wakeForce: 1.78,
+      leanForce: 2.2,
+      spring: 19,
+      damping: 22,
+      pressDepth: 2,
+      exposure: 1.8,
+      sunColor: '#ece5ff',
+      sunLight: 8.5,
+      sunX: -13.3,
+      sunY: 8.5,
+      sunZ: 9,
+      sunTargetX: 0,
+      sunTargetY: -1,
+      sunTargetZ: -3,
+      fillColor: '#00bd03',
+      fillLight: 9.55,
+      fillX: -11.8,
+      fillY: 4.2,
+      fillZ: 5.2,
+      fillTargetX: .7,
+      fillTargetY: 1,
+      fillTargetZ: -2,
+      shadowSoftness: 2.5,
+      shadowBias: .00105,
+      shadowNormalBias: .0525,
+      shadowArea: 20,
+      fillShadows: false,
+      ambientLight: 2,
+      fogDensity: .01,
+      ditherIntensity: .16,
+      vignette: 1.5
+    });
+    const qualityPresets = {
+      eco: { renderScale: .55, shadowSize: 0, fpsLimit: 30, dustAmount: .15, density: .55, surfaceDetail: .55, adaptive: true },
+      balanced: { renderScale: .75, shadowSize: 1024, fpsLimit: 60, dustAmount: .42, density: 1.1, surfaceDetail: .78, adaptive: true },
+      high: { renderScale: 1, shadowSize: 2048, fpsLimit: 60, dustAmount: .8, density: 2.15, surfaceDetail: 1, adaptive: true },
+      cinematic: { renderScale: 1.3, shadowSize: 4096, fpsLimit: 60, dustAmount: 1, density: 2.5, surfaceDetail: 1.3, adaptive: false }
+    };
+    let storedParams = {};
+    try { storedParams = JSON.parse(localStorage.getItem('understory-params-v16') || '{}'); } catch (_) {}
+    const params = { ...defaultParams, ...storedParams };
+    let adaptiveScale = params.renderScale;
+
+    let renderer;
+    try {
+      renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance', alpha: false });
+    } catch (error) {
+      document.querySelector('#fallback').style.display = 'block';
+      throw error;
+    }
+
+    renderer.setSize(innerWidth, innerHeight);
+    renderer.setPixelRatio(Math.min(devicePixelRatio * params.renderScale, 2.5));
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = params.exposure;
+    renderer.shadowMap.enabled = params.shadowSize > 0;
+    // PCFShadowMap keeps LightShadow.radius active so the softness control is real.
+    renderer.shadowMap.type = THREE.PCFShadowMap;
+    stage.appendChild(renderer.domElement);
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x020906);
+    scene.fog = new THREE.FogExp2(0x06110b, params.fogDensity);
+
+    const camera = new THREE.PerspectiveCamera(41, innerWidth / innerHeight, 0.1, 40);
+    camera.position.set(0, 0.15, 11.2);
+    camera.lookAt(0, 0, -1.5);
+    const composer = new EffectComposer(renderer);
+    composer.addPass(new RenderPass(scene, camera));
+    const bokehPass = new BokehPass(scene, camera, {
+      focus: params.dofFocus,
+      aperture: params.dofAperture,
+      maxblur: params.dofMaxBlur
+    });
+    composer.addPass(bokehPass);
+
+    const hemi = new THREE.HemisphereLight(0x9fc09b, 0x061009, params.ambientLight);
+    scene.add(hemi);
+
+    const sun = new THREE.DirectionalLight(params.sunColor, params.sunLight);
+    sun.position.set(params.sunX, params.sunY, params.sunZ);
+    sun.target.position.set(params.sunTargetX, params.sunTargetY, params.sunTargetZ);
+    sun.castShadow = params.shadowSize > 0;
+    sun.shadow.mapSize.set(Math.max(512, params.shadowSize), Math.max(512, params.shadowSize));
+    sun.shadow.camera.left = -params.shadowArea;
+    sun.shadow.camera.right = params.shadowArea;
+    sun.shadow.camera.top = params.shadowArea * .73;
+    sun.shadow.camera.bottom = -params.shadowArea * .73;
+    sun.shadow.camera.near = 0.5;
+    sun.shadow.camera.far = 28;
+    sun.shadow.bias = params.shadowBias;
+    sun.shadow.normalBias = params.shadowNormalBias;
+    sun.shadow.radius = params.shadowSoftness;
+    scene.add(sun, sun.target);
+
+    const fill = new THREE.DirectionalLight(params.fillColor, params.fillLight);
+    fill.position.set(params.fillX, params.fillY, params.fillZ);
+    fill.target.position.set(params.fillTargetX, params.fillTargetY, params.fillTargetZ);
+    fill.castShadow = params.fillShadows && params.shadowSize > 0;
+    fill.shadow.mapSize.set(Math.max(512, params.shadowSize), Math.max(512, params.shadowSize));
+    fill.shadow.camera.near = .5;
+    fill.shadow.camera.far = 28;
+    scene.add(fill, fill.target);
+
+    const BACKDROP_Z = -7.5;
+    const shadowWall = new THREE.Mesh(
+      new THREE.PlaneGeometry(68, 44),
+      new THREE.MeshStandardMaterial({ color: 0x06120b, roughness: 1, metalness: 0 })
+    );
+    shadowWall.position.z = BACKDROP_Z;
+    shadowWall.receiveShadow = true;
+    scene.add(shadowWall);
+
+    const rand = mulberry32(0x6a756e67);
+    const clamp = THREE.MathUtils.clamp;
+    const smoothstep = (a, b, x) => {
+      const t = clamp((x - a) / (b - a), 0, 1);
+      return t * t * (3 - 2 * t);
+    };
+
+    function mulberry32(seed) {
+      return () => {
+        seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+        let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+        t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+        return ((t ^ t >>> 14) >>> 0) / 4294967296;
+      };
+    }
+
+    function hash2(x, y, seed) {
+      let n = Math.imul(x + seed * 1013, 374761393) + Math.imul(y - seed * 79, 668265263);
+      n = (n ^ (n >>> 13));
+      n = Math.imul(n, 1274126177);
+      return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+    }
+
+    const palettes = {
+      monstera: [[22, 77, 46], [79, 128, 70], [170, 184, 104]],
+      alocasia: [[18, 55, 43], [57, 104, 73], [190, 206, 149]],
+      lance: [[15, 74, 42], [53, 126, 65], [145, 172, 84]],
+      calathea: [[32, 58, 39], [82, 117, 72], [195, 178, 126]],
+      fern: [[20, 73, 39], [64, 126, 65], [158, 176, 88]]
+    };
+
+    function leafWidth(kind, y) {
+      const s = Math.max(0, Math.sin(Math.PI * y));
+      if (kind === 'lance' || kind === 'fern') return Math.pow(s, 1.28) * (0.66 + y * .12);
+      if (kind === 'alocasia') return Math.pow(s, .62) * (.88 + .16 * (1 - y));
+      if (kind === 'calathea') return Math.pow(s, .82) * .78;
+      return Math.pow(s, .55) * (.82 + .15 * y);
+    }
+
+    function makeLeafTexture(kind, seed) {
+      const w = 384, h = 768;
+      const colorCanvas = document.createElement('canvas');
+      const bumpCanvas = document.createElement('canvas');
+      colorCanvas.width = bumpCanvas.width = w;
+      colorCanvas.height = bumpCanvas.height = h;
+      const colorCtx = colorCanvas.getContext('2d');
+      const bumpCtx = bumpCanvas.getContext('2d');
+      const colorImage = colorCtx.createImageData(w, h);
+      const bumpImage = bumpCtx.createImageData(w, h);
+      const p = palettes[kind];
+
+      for (let py = 0; py < h; py++) {
+        const y = py / (h - 1);
+        const width = leafWidth(kind, y);
+        for (let px = 0; px < w; px++) {
+          const x = (px / (w - 1) - .5) * 2;
+          const nx = Math.abs(x) / Math.max(.001, width);
+          let signed = 1 - nx;
+          let inside = signed > -.015 && y > .008 && y < .996;
+
+          if (inside && kind === 'monstera') {
+            // Fenestrations follow curved secondary veins: tapering outer splits and
+            // a few irregular, vein-aligned interior windows rather than repeated ellipses.
+            const ax = Math.abs(x);
+            const side = x < 0 ? -1 : 1;
+            for (let k = 0; k < 6; k++) {
+              const jitter = (hash2(k, seed, 44) - .5) * .034;
+              const root = .205 + k * .083 + jitter;
+              const inner = .23 + k * .022 + (hash2(k, seed, 51) - .5) * .026;
+              const curve = root + (ax - inner) * (.14 + k * .012) + Math.sin((ax + k) * 13.0) * .008;
+              const slotWidth = (.009 + k * .0018) * smoothstep(inner, Math.max(inner + .11, width), ax);
+              if (ax > inner && Math.abs(y - curve) < slotWidth && ax < width * 1.025) inside = false;
+              if (k < 4) {
+                const cx = side * (.225 + k * .052 + (hash2(k, seed, 61) - .5) * .025);
+                const cy = .31 + k * .105 + (hash2(k, seed, 71) - .5) * .025;
+                const rx = .026 + k * .003;
+                const ry = .038 + k * .005;
+                const skewY = y - cy - (x - cx) * side * .26;
+                const hole = ((x - cx) ** 2 / (rx * rx) + skewY ** 2 / (ry * ry)) < 1;
+                if (hole) inside = false;
+              }
+            }
+          }
+          if (inside && kind === 'alocasia' && y < .105) {
+            const notch = Math.abs(x) < (.15 * (1 - y / .105));
+            if (notch) inside = false;
+          }
+
+          const i = (py * w + px) * 4;
+          if (!inside) {
+            colorImage.data[i + 3] = 0;
+            bumpImage.data[i] = bumpImage.data[i + 1] = bumpImage.data[i + 2] = 112;
+            bumpImage.data[i + 3] = 255;
+            continue;
+          }
+
+          const n0 = hash2(px >> 2, py >> 2, seed);
+          const n1 = hash2(px >> 4, py >> 4, seed + 17);
+          const middle = Math.exp(-Math.abs(x) * (kind === 'lance' ? 28 : 35));
+          const veinFreq = kind === 'lance' ? 12 : 8.5;
+          const ribWave = Math.abs(((y * veinFreq + Math.abs(x) * 1.85) % 1) - .5);
+          const sideVein = Math.exp(-ribWave * 46) * smoothstep(.04, .82, Math.abs(x));
+          const edge = smoothstep(0, .16, signed);
+          const stripe = kind === 'calathea' ? .5 + .5 * Math.cos(y * 58 + Math.abs(x) * 10) : 0;
+          const mottling = (n0 - .5) * .16 + (n1 - .5) * .12 + stripe * .08;
+          const light = clamp(.42 + y * .12 + mottling + middle * .34 + sideVein * .16 - (1 - edge) * .27, 0, 1);
+          const dry = hash2(px >> 3, py >> 3, seed + 90) > .978 ? .16 : 0;
+
+          const c0 = p[0], c1 = p[1], c2 = p[2];
+          const t = smoothstep(.08, .9, light);
+          const hi = smoothstep(.56, 1, t);
+          for (let ch = 0; ch < 3; ch++) {
+            const low = c0[ch] + (c1[ch] - c0[ch]) * t;
+            const val = low + (c2[ch] - low) * hi * .58 + dry * (ch === 0 ? 56 : ch === 1 ? 35 : 10);
+            colorImage.data[i + ch] = clamp(val, 0, 255);
+          }
+          colorImage.data[i + 3] = clamp(edge * 390, 0, 255);
+
+          const bump = clamp(112 + (n0 - .5) * 22 + middle * 100 + sideVein * 52 - (1 - edge) * 18, 0, 255);
+          bumpImage.data[i] = bumpImage.data[i + 1] = bumpImage.data[i + 2] = bump;
+          bumpImage.data[i + 3] = 255;
+        }
+      }
+
+      colorCtx.putImageData(colorImage, 0, 0);
+      bumpCtx.putImageData(bumpImage, 0, 0);
+      const map = new THREE.CanvasTexture(colorCanvas);
+      map.colorSpace = THREE.SRGBColorSpace;
+      map.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+      const bump = new THREE.CanvasTexture(bumpCanvas);
+      bump.anisotropy = map.anisotropy;
+      return { map, bump };
+    }
+
+    const textureLoader = new THREE.TextureLoader();
+    const photoSurface = textureLoader.load('./assets/leaf-surface-color.webp');
+    photoSurface.colorSpace = THREE.SRGBColorSpace;
+    photoSurface.wrapS = photoSurface.wrapT = THREE.RepeatWrapping;
+    photoSurface.repeat.set(2.4, 4.8);
+    const photoNormal = textureLoader.load('./assets/leaf-surface-normal.webp');
+    photoNormal.wrapS = photoNormal.wrapT = THREE.RepeatWrapping;
+    photoNormal.repeat.set(2.4, 4.8);
+
+    const kinds = ['monstera', 'alocasia', 'lance', 'calathea', 'fern'];
+    const textureSets = Object.fromEntries(kinds.map((kind, i) => [kind, makeLeafTexture(kind, i * 31 + 7)]));
+    const materials = {};
+    const shaderMaterials = [];
+
+    for (const [index, kind] of kinds.entries()) {
+      const tex = textureSets[kind];
+      const material = new THREE.MeshPhysicalMaterial({
+        map: tex.map,
+        bumpMap: tex.bump,
+        bumpScale: kind === 'monstera' ? .065 : .045,
+        normalMap: photoNormal,
+        normalScale: new THREE.Vector2(.14, .14),
+        alphaTest: .42,
+        side: THREE.DoubleSide,
+        roughness: .74,
+        metalness: 0,
+        clearcoat: .13,
+        clearcoatRoughness: .62,
+        thickness: params.leafThickness,
+        transmission: .025,
+        sheen: .24,
+        sheenColor: new THREE.Color(kind === 'calathea' ? 0xc6a68d : 0x7da06a),
+        sheenRoughness: .8,
+        emissive: new THREE.Color(0x06140a),
+        emissiveIntensity: .18,
+        shadowSide: THREE.DoubleSide
+      });
+      material.userData.baseBumpScale = kind === 'monstera' ? .065 : .045;
+      material.onBeforeCompile = (shader) => {
+        shader.uniforms.uTime = { value: 0 };
+        shader.uniforms.uWindStrength = { value: params.windStrength };
+        shader.uniforms.uTurbulence = { value: params.turbulence };
+        shader.uniforms.uShapeNoise = { value: params.shapeNoise };
+        shader.uniforms.uTextureNoise = { value: params.textureNoise };
+        shader.uniforms.uPhotoTexture = { value: params.photoTexture };
+        shader.uniforms.uPhotoSurface = { value: photoSurface };
+        shader.vertexShader = shader.vertexShader
+          .replace('#include <common>', `#include <common>
+            uniform float uTime;
+            uniform float uWindStrength;
+            uniform float uTurbulence;
+            uniform float uShapeNoise;
+          `)
+          .replace('#include <begin_vertex>', `
+            vec3 transformed = vec3(position);
+            float root = pow(uv.y, 1.28);
+            float worldPhase = dot(modelMatrix[3].xyz, vec3(0.71, 1.13, 0.43)) + ${index.toFixed(1)};
+            vec2 worldXY = modelMatrix[3].xy;
+            float gustCell = sin(uTime * 0.23 + worldXY.x * 0.42 + sin(worldXY.y * 0.37 + uTime * 0.11));
+            float localGust = pow(max(0.0, gustCell), 3.6);
+            float breath = sin(uTime * 0.46 + worldPhase) * 0.20 + sin(uTime * 1.17 + worldPhase * 1.7) * 0.07 + localGust * 0.62;
+            float flutter = (sin(uTime * 2.7 + uv.y * 8.0 + worldPhase * 2.2) * 0.012 + localGust * sin(uv.y * 11.0 + worldPhase) * 0.038) * uTurbulence;
+            float edgeNoise = sin(uv.y * 31.0 + worldPhase * 4.1) * pow(abs(uv.x - 0.5) * 2.0, 2.4) * 0.022 * uShapeNoise;
+            transformed.x += (breath * 0.075 * uWindStrength + flutter + edgeNoise) * root;
+            transformed.z += breath * 0.12 * root * uWindStrength + flutter * root * 0.8 + edgeNoise;
+            transformed.z += (1.0 - pow(abs(uv.x - 0.5) * 2.0, 1.65)) * 0.075;
+          `);
+        shader.fragmentShader = shader.fragmentShader
+          .replace('#include <common>', `#include <common>
+            uniform float uTextureNoise;
+            uniform float uPhotoTexture;
+            uniform sampler2D uPhotoSurface;`)
+          .replace('#include <map_fragment>', `#include <map_fragment>
+            float leafNoise = fract(sin(dot(vMapUv * vec2(311.7, 917.3), vec2(12.9898, 78.233))) * 43758.5453);
+            diffuseColor.rgb *= 1.0 + (leafNoise - 0.5) * 0.18 * uTextureNoise;
+            vec3 photographedSurface = texture2D(uPhotoSurface, vMapUv * vec2(2.4, 4.8)).rgb;
+            diffuseColor.rgb *= mix(vec3(1.0), photographedSurface * 1.24, clamp(uPhotoTexture, 0.0, 1.0) * 0.26);
+          `);
+        material.userData.shader = shader;
+      };
+      material.customProgramCacheKey = () => `leaf-wind-photo-v5-${index}`;
+      materials[kind] = material;
+      shaderMaterials.push(material);
+    }
+
+    const geometryCache = new Map();
+    function leafGeometry(width, length) {
+      const key = `${width.toFixed(2)}-${length.toFixed(2)}`;
+      if (geometryCache.has(key)) return geometryCache.get(key);
+      const geo = new THREE.PlaneGeometry(width, length, 12, 22);
+      geo.translate(0, length * .5, 0);
+      const position = geo.attributes.position;
+      const uv = geo.attributes.uv;
+      for (let i = 0; i < position.count; i++) {
+        const across = position.getX(i) / (width * .5);
+        const along = uv.getY(i);
+        const arch = (1 - Math.pow(Math.abs(across), 1.62)) * Math.sin(Math.PI * along);
+        const twist = across * (along - .22);
+        const edgeRipple = Math.sin(along * Math.PI * 5.4 + across * 2.1) * Math.pow(Math.abs(across), 2.2);
+        position.setZ(i, arch * length * .052 + twist * length * .038 + edgeRipple * length * .012);
+      }
+      position.needsUpdate = true;
+      geo.computeVertexNormals();
+      geometryCache.set(key, geo);
+      return geo;
+    }
+
+    const leaves = [];
+    const tempProjection = new THREE.Vector3();
+    const tempBase = new THREE.Vector3();
+    const tempQuat = new THREE.Quaternion();
+    const tempEuler = new THREE.Euler();
+    const cameraTarget = new THREE.Vector3();
+    const cameraOffset = new THREE.Vector3();
+    const cameraOrbit = new THREE.Euler(0, 0, 0, 'YXZ');
+    const easedCameraPointer = new THREE.Vector2();
+
+    function addLeaf(options) {
+      const { kind, x, y, z, scale, rotation = 0, tiltX = 0, tiltY = 0, widthMul = 1, lengthMul = 1 } = options;
+      const dims = {
+        monstera: [2.05, 2.7], alocasia: [1.92, 2.85], lance: [.68, 3.45], calathea: [1.36, 3.05], fern: [.46, 1.5]
+      }[kind];
+      const group = new THREE.Group();
+      const mesh = new THREE.Mesh(leafGeometry(dims[0] * widthMul, dims[1] * lengthMul), materials[kind]);
+      mesh.castShadow = !coarse && z > -5.5;
+      mesh.receiveShadow = !coarse && z < 4.8;
+      group.add(mesh);
+
+      group.position.set(x, y, z);
+      group.scale.setScalar(scale);
+      group.rotation.set(tiltX, tiltY, rotation);
+      scene.add(group);
+
+      leaves.push({
+        group, mesh,
+        basePosition: group.position.clone(),
+        baseRotation: group.rotation.clone(),
+        velocity: new THREE.Vector3(),
+        animation: { lift: 0, exit: 0, twist: 0 },
+        collisionForce: new THREE.Vector3(),
+        angularVelocity: new THREE.Vector2(),
+        displacement: new THREE.Vector3(),
+        lean: new THREE.Vector2(),
+        phase: rand() * Math.PI * 2,
+        flex: .72 + rand() * .7,
+        baseScale: scale,
+        sizeNoise: .72 + rand() * .56,
+        densityRank: rand(),
+        radius: .31 + Math.min(.18, Math.max(0, (z + 5) * .012)),
+        bodyRadius: Math.max(.24, Math.max(dims[0] * widthMul, dims[1] * lengthMul) * scale * .19),
+        depthResponse: clamp((z + 7) / 14, .25, 1),
+        shadowEligible: z > -5.5,
+        receiveEligible: z < 4.8,
+        probeLocal: new THREE.Vector3(0, dims[1] * lengthMul * .5, 0),
+        mesh
+      });
+      return group;
+    }
+
+    function fillLayer(count, zMin, zMax, scaleMin, scaleMax) {
+      for (let i = 0; i < count; i++) {
+        const z = zMin + rand() * (zMax - zMin);
+        const kindRoll = rand();
+        const kind = kindRoll < .22 ? 'monstera' : kindRoll < .42 ? 'alocasia' : kindRoll < .68 ? 'lance' : kindRoll < .89 ? 'calathea' : 'fern';
+        const edgeBias = rand() < .31;
+        let x = (rand() * 2 - 1) * 9.2;
+        let y = (rand() * 2 - 1) * 5.8;
+        if (edgeBias) {
+          if (rand() < .5) x = (rand() < .5 ? -1 : 1) * (5.6 + rand() * 4.1);
+          else y = (rand() < .5 ? -1 : 1) * (3.4 + rand() * 3.0);
+        }
+        const scale = scaleMin + rand() * (scaleMax - scaleMin);
+        addLeaf({
+          kind, x, y, z, scale,
+          rotation: rand() * Math.PI * 2,
+          tiltX: (rand() - .5) * .42,
+          tiltY: (rand() - .5) * .58,
+          widthMul: .83 + rand() * .34,
+          lengthMul: .86 + rand() * .25
+        });
+      }
+    }
+
+    fillLayer(coarse ? 104 : 190, -7, -2.1, 1.02, 1.85);
+    fillLayer(coarse ? 88 : 160, -2.3, 2.1, .72, 1.45);
+    fillLayer(coarse ? 56 : 100, 1.8, 6.6, .72, 1.52);
+
+    // Deliberately close the frame at rest. These roots sit in the visual center,
+    // so the cursor has actual foliage to part instead of revealing a pre-cut hole.
+    for (let i = 0; i < (coarse ? 40 : 72); i++) {
+      const kind = ['monstera', 'alocasia', 'calathea', 'lance'][i % 4];
+      addLeaf({
+        kind,
+        x: (rand() * 2 - 1) * 4.15,
+        y: (rand() * 2 - 1) * 3.05,
+        z: -3.2 + rand() * 7.9,
+        scale: .5 + rand() * .38,
+        rotation: rand() * Math.PI * 2,
+        tiltX: (rand() - .5) * .35,
+        tiltY: (rand() - .5) * .44,
+        widthMul: .88 + rand() * .25,
+        lengthMul: .88 + rand() * .22
+      });
+    }
+
+
+    const dustCount = coarse ? 600 : 1600;
+    const dustPositions = new Float32Array(dustCount * 3);
+    const dustSeeds = new Float32Array(dustCount);
+    for (let i = 0; i < dustCount; i++) {
+      dustPositions[i * 3] = (rand() * 2 - 1) * 10;
+      dustPositions[i * 3 + 1] = (rand() * 2 - 1) * 6;
+      dustPositions[i * 3 + 2] = rand() * 12 - 5;
+      dustSeeds[i] = rand();
+    }
+    const dustHomePositions = dustPositions.slice();
+    const dustGeo = new THREE.BufferGeometry();
+    dustGeo.setAttribute('position', new THREE.BufferAttribute(dustPositions, 3));
+    dustGeo.setAttribute('seed', new THREE.BufferAttribute(dustSeeds, 1));
+    const moteCanvas = document.createElement('canvas');
+    moteCanvas.width = moteCanvas.height = 64;
+    const moteCtx = moteCanvas.getContext('2d');
+    const moteGradient = moteCtx.createRadialGradient(32, 32, 0, 32, 32, 31);
+    moteGradient.addColorStop(0, 'rgba(255,255,232,1)');
+    moteGradient.addColorStop(.16, 'rgba(224,255,202,.92)');
+    moteGradient.addColorStop(.5, 'rgba(180,228,160,.28)');
+    moteGradient.addColorStop(1, 'rgba(140,205,125,0)');
+    moteCtx.fillStyle = moteGradient;
+    moteCtx.fillRect(0, 0, 64, 64);
+    const moteSprite = new THREE.CanvasTexture(moteCanvas);
+    moteSprite.colorSpace = THREE.SRGBColorSpace;
+    const dustMat = new THREE.PointsMaterial({ color: 0xd6e4b2, map: moteSprite, size: params.moteSize, transparent: true, opacity: .3, depthWrite: false, blending: THREE.AdditiveBlending });
+    dustMat.onBeforeCompile = (shader) => {
+      shader.vertexShader = shader.vertexShader
+        .replace('#include <common>', `#include <common>\nattribute float seed;\nvarying float vMoteSeed;`)
+        .replace('#include <begin_vertex>', `#include <begin_vertex>\nvMoteSeed = seed;`)
+        .replace('gl_PointSize = size;', `gl_PointSize = size * mix(0.55, 1.55, seed);`);
+      shader.fragmentShader = shader.fragmentShader
+        .replace('#include <common>', `#include <common>\nvarying float vMoteSeed;`)
+        .replace('#include <map_particle_fragment>', `#include <map_particle_fragment>
+          float moteVariation = fract(vMoteSeed * 7.317);
+          float rareSpark = step(0.95, fract(vMoteSeed * 23.173));
+          diffuseColor.rgb *= mix(0.68, 1.38, vMoteSeed) * mix(1.0, 2.0, rareSpark);
+          diffuseColor.a *= mix(0.42, 1.0, moteVariation);
+        `);
+    };
+    dustMat.customProgramCacheKey = () => 'mote-variation-v1';
+    const dust = new THREE.Points(dustGeo, dustMat);
+    scene.add(dust);
+    let activeDustCount = Math.min(dustCount, params.moteCount);
+    const moteMotion = { vortex: 0, lift: 0, exit: 0 };
+
+    // BokehPass normally renders the whole scene with one opaque depth material,
+    // turning every alpha-cut leaf plane into a rectangle. Swap each mesh to an
+    // alpha-aware packed-depth material for the depth prepass, then restore it.
+    const dofDepthMaterials = new Map();
+    function depthMaterialFor(source) {
+      const key = source.uuid;
+      if (dofDepthMaterials.has(key)) return dofDepthMaterials.get(key);
+      const depth = new THREE.MeshDepthMaterial({
+        depthPacking: THREE.RGBADepthPacking,
+        map: source.map || null,
+        alphaTest: source.alphaTest || 0,
+        side: source.side,
+        depthTest: true,
+        depthWrite: true
+      });
+      dofDepthMaterials.set(key, depth);
+      return depth;
+    }
+    bokehPass.render = function (activeRenderer, writeBuffer, readBuffer) {
+      const swapped = [];
+      const dustVisible = dust.visible;
+      dust.visible = false;
+      this.scene.traverse((object) => {
+        if (!object.isMesh) return;
+        swapped.push([object, object.material]);
+        object.material = depthMaterialFor(object.material);
+      });
+      try {
+        activeRenderer.setRenderTarget(this.renderTargetDepth);
+        activeRenderer.clear();
+        activeRenderer.render(this.scene, this.camera);
+      } finally {
+        for (const [object, material] of swapped) object.material = material;
+        dust.visible = dustVisible;
+      }
+      this.uniforms.tColor.value = readBuffer.texture;
+      this.uniforms.tDepth.value = this.renderTargetDepth.texture;
+      activeRenderer.setRenderTarget(this.renderToScreen ? null : writeBuffer);
+      if (this.clear) activeRenderer.clear();
+      this.fsQuad.render(activeRenderer);
+    };
+
+    const numericSelects = new Set(['shadowSize', 'fpsLimit']);
+    const performanceParams = new Set(['renderScale', 'shadowSize', 'fpsLimit', 'dustAmount', 'moteCount', 'moteSize', 'density', 'surfaceDetail', 'adaptive', 'fillShadows']);
+    let appliedShadowSize = params.shadowSize;
+
+    function formatParam(key, value) {
+      if (key === 'density') return `${Number(value).toFixed(2).replace(/0$/, '')}×`;
+      if (key === 'dustAmount') return `${Math.round(value * 100)}%`;
+      if (key === 'dofAperture') return Number(value).toFixed(4);
+      if (key === 'fogDensity' || key === 'ditherIntensity' || key === 'leafStagger') return Number(value).toFixed(3);
+      if (key === 'shadowBias' || key === 'shadowNormalBias') return Number(value).toFixed(4);
+      if (key === 'spring' || key === 'moteCount') return Math.round(value);
+      return Number(value).toFixed(2).replace(/\.00$/, '');
+    }
+
+    function syncControls() {
+      controlsEl.querySelectorAll('[data-param]').forEach((input) => {
+        const key = input.dataset.param;
+        if (input.type === 'checkbox') input.checked = Boolean(params[key]);
+        else input.value = params[key];
+      });
+      controlsEl.querySelectorAll('[data-output]').forEach((output) => {
+        const key = output.dataset.output;
+        output.value = formatParam(key, params[key]);
+      });
+    }
+
+    function applyParams({ resizeShadow = false, persist = true } = {}) {
+      adaptiveScale = Math.min(adaptiveScale, params.renderScale);
+      renderer.setPixelRatio(Math.min(devicePixelRatio * adaptiveScale, 2.5));
+      renderer.setSize(innerWidth, innerHeight, false);
+      composer.setPixelRatio(renderer.getPixelRatio());
+      composer.setSize(innerWidth, innerHeight);
+      renderer.toneMappingExposure = params.exposure;
+      bokehPass.uniforms.focus.value = params.dofFocus;
+      bokehPass.uniforms.aperture.value = params.dofAperture;
+      bokehPass.uniforms.maxblur.value = params.dofMaxBlur;
+      scene.fog.density = params.fogDensity;
+      sun.color.set(params.sunColor);
+      sun.intensity = params.sunLight;
+      sun.position.set(params.sunX, params.sunY, params.sunZ);
+      sun.target.position.set(params.sunTargetX, params.sunTargetY, params.sunTargetZ);
+      sun.target.updateMatrixWorld();
+      fill.color.set(params.fillColor);
+      fill.intensity = params.fillLight;
+      fill.position.set(params.fillX, params.fillY, params.fillZ);
+      fill.target.position.set(params.fillTargetX, params.fillTargetY, params.fillTargetZ);
+      fill.target.updateMatrixWorld();
+      hemi.intensity = params.ambientLight;
+
+      const shadowsEnabled = Number(params.shadowSize) > 0;
+      renderer.shadowMap.enabled = shadowsEnabled;
+      sun.castShadow = shadowsEnabled;
+      fill.castShadow = shadowsEnabled && params.fillShadows;
+      shadowWall.receiveShadow = shadowsEnabled;
+
+      for (const light of [sun, fill]) {
+        light.shadow.bias = params.shadowBias;
+        light.shadow.normalBias = params.shadowNormalBias;
+        light.shadow.radius = params.shadowSoftness;
+        light.shadow.camera.left = -params.shadowArea;
+        light.shadow.camera.right = params.shadowArea;
+        light.shadow.camera.top = params.shadowArea * .73;
+        light.shadow.camera.bottom = -params.shadowArea * .73;
+        light.shadow.camera.updateProjectionMatrix();
+      }
+      if (resizeShadow || appliedShadowSize !== Number(params.shadowSize)) {
+        appliedShadowSize = Number(params.shadowSize);
+        const size = Math.max(512, appliedShadowSize || 512);
+        for (const light of [sun, fill]) {
+          light.shadow.mapSize.set(size, size);
+          if (light.shadow.map) {
+            light.shadow.map.dispose();
+            light.shadow.map = null;
+          }
+          light.shadow.needsUpdate = true;
+        }
+      }
+
+      for (const leaf of leaves) {
+        leaf.group.visible = leaf.densityRank <= clamp(params.density / 3.35, 0, 1);
+        const variation = 1 + (leaf.sizeNoise - 1) * params.sizeNoise;
+        leaf.group.scale.setScalar(leaf.baseScale * params.leafSize * variation);
+        leaf.group.traverse((object) => {
+          if (!object.isMesh) return;
+          object.castShadow = shadowsEnabled && leaf.shadowEligible;
+          object.receiveShadow = shadowsEnabled && leaf.receiveEligible;
+        });
+      }
+
+      for (const material of shaderMaterials) {
+        material.bumpScale = material.userData.baseBumpScale * params.surfaceDetail;
+        material.normalScale.set(.14 * params.surfaceDetail, .14 * params.surfaceDetail);
+        material.thickness = params.leafThickness;
+        material.transmission = .015 + params.leafThickness * 1.2;
+        material.clearcoat = params.wetness * .72;
+        material.clearcoatRoughness = .88 - params.wetness * .62;
+        material.roughness = .84 - params.wetness * .38;
+        const shader = material.userData.shader;
+        if (shader) {
+          shader.uniforms.uWindStrength.value = params.windStrength;
+          shader.uniforms.uTurbulence.value = params.turbulence;
+          shader.uniforms.uShapeNoise.value = params.shapeNoise;
+          shader.uniforms.uTextureNoise.value = params.textureNoise;
+          shader.uniforms.uPhotoTexture.value = params.photoTexture;
+        }
+      }
+
+      activeDustCount = Math.min(dustCount, Math.floor(params.moteCount * params.dustAmount));
+      dustGeo.setDrawRange(0, activeDustCount);
+      dustMat.size = params.moteSize;
+      dustMat.opacity = clamp(.08 + params.moteGlow * .2, 0, .78);
+      dustMat.color.set(params.moteColor);
+      landingContentEl.style.setProperty('--content-button-gap', `${params.contentButtonGap}px`);
+      glassEl.style.setProperty('--dither-intensity', params.ditherIntensity);
+      glassEl.style.setProperty('--vignette-alpha', clamp(.82 * params.vignette, 0, .98));
+      if (persist) localStorage.setItem('understory-params-v16', JSON.stringify(params));
+    }
+
+    controlsEl.querySelectorAll('[data-param]').forEach((input) => {
+      input.addEventListener('input', () => {
+        const key = input.dataset.param;
+        if (key === 'qualityPreset') {
+          if (input.value !== 'custom') {
+            Object.assign(params, qualityPresets[input.value], { qualityPreset: input.value });
+            adaptiveScale = params.renderScale;
+            syncControls();
+            applyParams({ resizeShadow: true });
+          }
+          return;
+        }
+        params[key] = input.type === 'checkbox' ? input.checked : numericSelects.has(key) || input.type === 'range' ? Number(input.value) : input.value;
+        if (performanceParams.has(key)) params.qualityPreset = 'custom';
+        if (key === 'renderScale') adaptiveScale = params.renderScale;
+        syncControls();
+        applyParams({ resizeShadow: key === 'shadowSize' });
+      });
+    });
+
+    document.querySelector('#panel-toggle').addEventListener('click', () => {
+      controlsEl.classList.toggle('collapsed');
+      document.querySelector('#panel-toggle').textContent = controlsEl.classList.contains('collapsed') ? '+' : '−';
+    });
+    document.querySelector('#reset-params').addEventListener('click', () => {
+      Object.assign(params, defaultParams);
+      adaptiveScale = params.renderScale;
+      syncControls();
+      applyParams({ resizeShadow: true });
+    });
+    document.querySelector('#copy-params').addEventListener('click', async (event) => {
+      const button = event.currentTarget;
+      const json = JSON.stringify(params, null, 2);
+      let copied = false;
+      try {
+        if (navigator.clipboard && isSecureContext) {
+          await navigator.clipboard.writeText(json);
+          copied = true;
+        }
+      } catch (_) {}
+      if (!copied) {
+        const fallback = document.createElement('textarea');
+        fallback.value = json;
+        fallback.setAttribute('readonly', '');
+        fallback.style.cssText = 'position:fixed;left:-9999px;top:0';
+        document.body.appendChild(fallback);
+        fallback.select();
+        copied = document.execCommand('copy');
+        fallback.remove();
+      }
+      button.textContent = copied ? 'Copied' : 'Copy failed';
+      setTimeout(() => button.textContent = 'Copy JSON', 900);
+    });
+    for (const eventName of ['pointermove', 'pointerdown', 'pointerup']) {
+      controlsEl.addEventListener(eventName, (event) => event.stopPropagation());
+    }
+    controlsEl.addEventListener('pointerenter', () => { if (typeof pointer !== 'undefined') pointer.active = false; });
+    addEventListener('keydown', (event) => {
+      if (event.key.toLowerCase() !== 'h') return;
+      controlsEl.classList.toggle('collapsed');
+      document.querySelector('#panel-toggle').textContent = controlsEl.classList.contains('collapsed') ? '+' : '−';
+    });
+
+    syncControls();
+    applyParams({ resizeShadow: true, persist: false });
+
+    const pointer = {
+      x: 0, y: 0, sx: 0, sy: 0, px: innerWidth * .5, py: innerHeight * .5,
+      active: false, pressure: 0, targetPressure: 0, moved: false
+    };
+
+    function setPointer(clientX, clientY, pressure = 0) {
+      pointer.x = clientX / innerWidth * 2 - 1;
+      pointer.y = -(clientY / innerHeight * 2 - 1);
+      pointer.px = clientX;
+      pointer.py = clientY;
+      pointer.active = true;
+      pointer.moved = true;
+      pointer.targetPressure = pressure;
+      cursorEl.style.setProperty('--cx', `${clientX}px`);
+      cursorEl.style.setProperty('--cy', `${clientY}px`);
+      glassEl.style.setProperty('--mx', `${clientX}px`);
+      glassEl.style.setProperty('--my', `${clientY}px`);
+      hintEl.style.opacity = '0';
+    }
+
+    addEventListener('pointermove', (event) => setPointer(event.clientX, event.clientY, event.pressure));
+    addEventListener('pointerdown', (event) => { pointer.targetPressure = 1; setPointer(event.clientX, event.clientY, 1); });
+    addEventListener('pointerup', () => pointer.targetPressure = 0);
+    addEventListener('pointercancel', () => pointer.targetPressure = 0);
+    addEventListener('pointerleave', () => { pointer.active = false; pointer.targetPressure = 0; cursorEl.style.opacity = '.25'; });
+    addEventListener('pointerenter', () => { pointer.active = true; cursorEl.style.opacity = '1'; });
+
+    const clock = new THREE.Clock();
+    const worldPointer = new THREE.Vector3();
+    const ray = new THREE.Raycaster();
+    const pointerPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
+    let lastTime = 0;
+    let lastRenderStamp = 0;
+    let perfElapsed = 0;
+    let perfFrames = 0;
+    let adaptiveLowSamples = 0;
+    let sequenceStartedAt = 0;
+    let contentRevealed = false;
+    let contentMode = 'intro';
+    const easeOutQuint = (value) => 1 - Math.pow(1 - clamp(value, 0, 1), 5);
+    function landingProgress(elapsed) {
+      if (!params.introEnabled || reducedMotion) return 1;
+      return easeOutQuint((elapsed - sequenceStartedAt - params.introDelay) / params.introDuration);
+    }
+    function tweenLeaves(values, options = {}) {
+      const targets = leaves.filter((leaf) => leaf.group.visible).map((leaf) => leaf.animation);
+      gsap.killTweensOf(targets);
+      gsap.to(targets, {
+        ...values,
+        duration: options.duration ?? params.ctaLiftDuration,
+        ease: options.ease ?? 'power3.inOut',
+        stagger: { each: params.leafStagger, from: options.from ?? 'random' },
+        overwrite: 'auto'
+      });
+    }
+    function tweenMotes(values, duration = params.ctaLiftDuration, ease = 'power3.inOut') {
+      gsap.to(moteMotion, { ...values, duration, ease, overwrite: 'auto' });
+    }
+    const contentOpacity = (_, element) => element.classList.contains('landing-eyebrow') ? .65 : 1;
+    function transitionContent(showThanks) {
+      if ((showThanks && contentMode === 'thanks') || (!showThanks && contentMode === 'intro')) return;
+      contentMode = showThanks ? 'thanks' : 'intro';
+      const outgoing = showThanks ? introStateEl : thanksStateEl;
+      const incoming = showThanks ? thanksStateEl : introStateEl;
+      gsap.timeline({ defaults: { duration: params.contentDuration, ease: 'expo.inOut' } })
+        .to(outgoing.children, { y: -24, opacity: 0, stagger: .045 }, 0)
+        .set(outgoing, { autoAlpha: 0 })
+        .set(incoming, { autoAlpha: 1 })
+        .fromTo(incoming.children, { y: 30, opacity: 0, scale: .96 }, { y: 0, opacity: contentOpacity, scale: 1, stagger: .065 }, '-=.2');
+    }
+    function replaySequence() {
+      const leafStates = leaves.map((leaf) => leaf.animation);
+      gsap.killTweensOf(leafStates);
+      gsap.killTweensOf(moteMotion);
+      gsap.killTweensOf([landingContentEl, introStateEl, thanksStateEl, ...introStateEl.children, ...thanksStateEl.children]);
+      for (const leaf of leaves) {
+        leaf.animation.lift = leaf.animation.exit = leaf.animation.twist = 0;
+        leaf.velocity.set(0, 0, 0);
+        leaf.angularVelocity.set(0, 0);
+        leaf.displacement.set(0, 0, 0);
+        leaf.lean.set(0, 0);
+      }
+      moteMotion.vortex = moteMotion.lift = moteMotion.exit = 0;
+      dustPositions.set(dustHomePositions);
+      dustGeo.attributes.position.needsUpdate = true;
+      dust.position.set(0, 0, 0);
+      dust.rotation.set(0, 0, 0);
+      easedCameraPointer.set(0, 0);
+      pointer.x = pointer.y = pointer.sx = pointer.sy = 0;
+      pointer.pressure = 0;
+      contentRevealed = false;
+      contentMode = 'intro';
+      gsap.set(landingContentEl, { autoAlpha: 0, pointerEvents: 'none' });
+      gsap.set(introStateEl, { autoAlpha: 1 });
+      gsap.set(thanksStateEl, { autoAlpha: 0 });
+      gsap.set([...introStateEl.children, ...thanksStateEl.children], { clearProps: 'transform,opacity,visibility' });
+      sequenceStartedAt = clock.getElapsedTime();
+    }
+    document.querySelector('#replay-sequence').addEventListener('click', replaySequence);
+    landingCtaEl.addEventListener('pointerenter', () => {
+      tweenLeaves({ lift: 1 }, { ease: 'power3.out' });
+      tweenMotes({ lift: 1, vortex: 1 }, params.ctaLiftDuration, 'power3.out');
+    });
+    landingCtaEl.addEventListener('pointerleave', () => {
+      if (contentMode === 'intro') {
+        tweenLeaves({ lift: 0 }, { duration: params.ctaLiftDuration * .82, ease: 'power2.inOut', from: 'end' });
+        tweenMotes({ lift: 0, vortex: 0 }, params.ctaLiftDuration * .82, 'power2.inOut');
+      }
+    });
+    landingCtaEl.addEventListener('click', () => {
+      transitionContent(true);
+      tweenLeaves({ lift: 1, exit: 1, twist: 1 }, { duration: params.exitDuration, ease: 'power2.inOut' });
+      tweenMotes({ lift: 1, vortex: 1, exit: 1 }, params.exitDuration, 'power2.inOut');
+    });
+    landingBackEl.addEventListener('click', () => {
+      transitionContent(false);
+      tweenLeaves({ exit: 0, twist: 0, lift: 0 }, { duration: params.exitDuration * .86, ease: 'power3.inOut', from: 'end' });
+      tweenMotes({ exit: 0, vortex: 0, lift: 0 }, params.exitDuration * .86, 'power3.inOut');
+    });
+
+    // Broad-phase disc contacts: deliberately cheap enough for a dense field of leaves.
+    // It prevents the most obvious intersections, but does not pretend the leaves are rigid bodies.
+    function applyLeafContacts() {
+      for (const leaf of leaves) leaf.collisionForce.set(0, 0, 0);
+      if (!params.physicsEnabled || !params.collisionStrength) return;
+      const cell = 2.15 * params.collisionRadius;
+      const grid = new Map();
+      const key = (x, y) => `${x}:${y}`;
+      for (const leaf of leaves) {
+        if (!leaf.group.visible) continue;
+        const p = leaf.group.position;
+        const gx = Math.floor(p.x / cell), gy = Math.floor(p.y / cell);
+        for (let ox = -1; ox <= 1; ox++) for (let oy = -1; oy <= 1; oy++) {
+          const bucket = grid.get(key(gx + ox, gy + oy));
+          if (!bucket) continue;
+          for (const other of bucket) {
+            const dx = p.x - other.group.position.x;
+            const dy = p.y - other.group.position.y;
+            const distance = Math.hypot(dx, dy);
+            const reach = (leaf.bodyRadius + other.bodyRadius) * params.collisionRadius;
+            if (distance >= reach || Math.abs(p.z - other.group.position.z) > reach * .82) continue;
+            const nx = distance > .001 ? dx / distance : Math.cos(leaf.phase);
+            const ny = distance > .001 ? dy / distance : Math.sin(leaf.phase);
+            const force = (1 - distance / reach) * params.collisionStrength * 16;
+            leaf.collisionForce.x += nx * force;
+            leaf.collisionForce.y += ny * force;
+            other.collisionForce.x -= nx * force;
+            other.collisionForce.y -= ny * force;
+            const zForce = force * .22 * (p.z >= other.group.position.z ? 1 : -1);
+            leaf.collisionForce.z += zForce;
+            other.collisionForce.z -= zForce;
+          }
+        }
+        const own = key(gx, gy);
+        if (!grid.has(own)) grid.set(own, []);
+        grid.get(own).push(leaf);
+      }
+    }
+
+    function animate(frameStamp = 0) {
+      requestAnimationFrame(animate);
+      const frameInterval = 1000 / Math.max(1, params.fpsLimit);
+      if (frameStamp - lastRenderStamp < frameInterval * .88) return;
+      lastRenderStamp = frameStamp;
+      const elapsed = clock.getElapsedTime();
+      const dt = Math.min(.033, elapsed - lastTime || .016);
+      lastTime = elapsed;
+      const landed = landingProgress(elapsed);
+      const sequenceElapsed = elapsed - sequenceStartedAt;
+      const contentStart = (params.introEnabled && !reducedMotion ? params.introDelay + params.introDuration : 0) + params.contentDelay;
+      if (!contentRevealed && sequenceElapsed >= contentStart) {
+        contentRevealed = true;
+        gsap.set(introStateEl, { autoAlpha: 1 });
+        gsap.to(landingContentEl, { autoAlpha: 1, pointerEvents: 'auto', duration: params.contentDuration, ease: 'power3.out' });
+        gsap.fromTo(introStateEl.children, { y: 32, opacity: 0, scale: .96 }, { y: 0, opacity: contentOpacity, scale: 1, duration: params.contentDuration, stagger: .08, ease: 'expo.out' });
+      }
+
+      pointer.sx += (pointer.x - pointer.sx) * (1 - Math.exp(-dt * 13));
+      pointer.sy += (pointer.y - pointer.sy) * (1 - Math.exp(-dt * 13));
+      pointer.pressure += (pointer.targetPressure - pointer.pressure) * (1 - Math.exp(-dt * 8));
+
+      ray.setFromCamera(new THREE.Vector2(pointer.sx, pointer.sy), camera);
+      ray.ray.intersectPlane(pointerPlane, worldPointer);
+      applyLeafContacts();
+
+      const windScale = reducedMotion ? .25 : 1;
+      const windTime = elapsed * params.windSpeed;
+      for (const leaf of leaves) {
+        if (!leaf.group.visible) continue;
+        if (leaf.mesh && leaf.probeLocal) {
+          tempBase.copy(leaf.probeLocal).applyMatrix4(leaf.mesh.matrixWorld);
+          tempProjection.copy(tempBase).project(camera);
+        } else {
+          tempProjection.copy(leaf.basePosition).project(camera);
+        }
+        const dx = tempProjection.x - pointer.sx;
+        const dy = tempProjection.y - pointer.sy;
+        const aspect = innerWidth / innerHeight;
+        const dist = Math.hypot(dx * aspect, dy);
+        const wakeRadius = leaf.radius * params.wakeRadius + pointer.pressure * .12 * params.pressDepth;
+        const influence = pointer.active ? (1 - smoothstep(wakeRadius * .16, wakeRadius, dist)) * (.78 + leaf.depthResponse * .22) : 0;
+        const inv = 1 / Math.max(.018, dist);
+        const centered = dist < .026;
+        const awayX = centered ? Math.cos(leaf.phase) : dx * aspect * inv;
+        const awayY = centered ? Math.sin(leaf.phase) : dy * inv;
+
+        const pulse = (.8 + pointer.pressure * .68 * params.pressDepth) * params.wakeForce;
+        const targetX = awayX * influence * 2.65 * pulse;
+        const targetY = awayY * influence * 2.15 * pulse;
+        const targetZ = params.physicsEnabled
+          ? influence * (1.05 + pointer.pressure * 1.05 * params.pressDepth) * leaf.depthResponse * params.cursorLift
+          : -influence * (1.05 + pointer.pressure * 1.05 * params.pressDepth) * leaf.depthResponse * params.wakeForce;
+
+        const spring = params.spring * leaf.flex * (params.physicsEnabled ? params.physicsSettle : 1);
+        const damping = params.damping;
+        leaf.velocity.x += ((targetX - leaf.displacement.x) * spring - leaf.velocity.x * damping) * dt;
+        const gravity = params.physicsEnabled ? params.physicsGravity * .16 : 0;
+        leaf.velocity.y += ((targetY - gravity - leaf.displacement.y) * spring - leaf.velocity.y * damping) * dt;
+        leaf.velocity.z += ((targetZ - leaf.displacement.z) * spring - leaf.velocity.z * damping) * dt;
+        if (params.physicsEnabled) leaf.velocity.addScaledVector(leaf.collisionForce, dt);
+        leaf.displacement.addScaledVector(leaf.velocity, dt);
+
+        const targetLeanX = -awayY * influence * 1.2 * params.leanForce;
+        const targetLeanY = awayX * influence * 1.3 * params.leanForce;
+        leaf.angularVelocity.x += ((targetLeanX - leaf.lean.x) * 36 - leaf.angularVelocity.x * 9) * dt;
+        leaf.angularVelocity.y += ((targetLeanY - leaf.lean.y) * 36 - leaf.angularVelocity.y * 9) * dt;
+        leaf.lean.x += leaf.angularVelocity.x * dt;
+        leaf.lean.y += leaf.angularVelocity.y * dt;
+
+        const gustCell = Math.sin(windTime * .23 + leaf.basePosition.x * .42 + Math.sin(leaf.basePosition.y * .37 + windTime * .11));
+        const localGust = Math.max(0, gustCell) ** 3.6;
+        const eddy = Math.sin(windTime * .58 + leaf.basePosition.y * .74 - leaf.basePosition.x * .19);
+        const slowWind = (Math.sin(windTime * .46 + leaf.phase) * .011 + eddy * .007 + localGust * (.032 + .022 * Math.sin(windTime * 1.6 + leaf.phase))) * params.windStrength;
+        const gust = localGust * Math.sin(windTime * 2.05 + leaf.phase) * .042 * params.turbulence * params.windStrength;
+        let landingX = leaf.basePosition.x * params.spread;
+        let landingY = leaf.basePosition.y * params.spread;
+        const centerDistance = Math.hypot(landingX, landingY);
+        if (centerDistance < params.centerClearRadius) {
+          const angle = centerDistance > .001 ? Math.atan2(landingY, landingX) : leaf.phase;
+          const push = (params.centerClearRadius - centerDistance) * 1.16;
+          landingX += Math.cos(angle) * push;
+          landingY += Math.sin(angle) * push;
+        }
+        const twirl = (1 - landed) * params.twirlTurns * Math.PI * 2 + leaf.phase * .08;
+        const cos = Math.cos(twirl), sin = Math.sin(twirl);
+        const spunX = landingX * cos - landingY * sin;
+        const spunY = landingX * sin + landingY * cos;
+        const lift = leaf.animation.lift;
+        const exit = leaf.animation.exit;
+        const dreamFloat = lift * params.dreamFloat * (Math.sin(elapsed * .72 + leaf.phase) + Math.sin(elapsed * .31 + leaf.phase * 2.1) * .45);
+        const exitOrbit = exit * 1.15;
+        const restZ = THREE.MathUtils.lerp(leaf.basePosition.z, BACKDROP_Z + .28, params.restDepthCompression);
+        leaf.group.position.set(
+          spunX * (1 - landed) + landingX * landed + leaf.displacement.x + Math.cos(leaf.phase + elapsed * .34) * exitOrbit,
+          spunY * (1 - landed) + landingY * landed + leaf.displacement.y + slowWind * .12 * windScale + Math.sin(leaf.phase + elapsed * .29) * exitOrbit,
+          restZ - (1 - landed) * params.introDistance + leaf.displacement.z + lift * params.ctaLiftDistance * leaf.depthResponse + dreamFloat + exit * params.exitDistance
+        );
+        leaf.group.rotation.set(
+          leaf.baseRotation.x + leaf.lean.x + (slowWind + gust) * windScale + lift * Math.sin(elapsed * .47 + leaf.phase) * .12 + leaf.animation.twist * params.exitTwist * Math.sin(leaf.phase),
+          leaf.baseRotation.y + leaf.lean.y + slowWind * .65 * windScale + lift * Math.cos(elapsed * .38 + leaf.phase) * .1 + leaf.animation.twist * params.exitTwist * Math.cos(leaf.phase * 1.7),
+          leaf.baseRotation.z + Math.sin(elapsed * .31 + leaf.phase) * (.014 + lift * .045) * windScale + leaf.animation.twist * params.exitTwist * .55
+        );
+      }
+
+      for (const material of shaderMaterials) {
+        if (!material.userData.shader) continue;
+        material.userData.shader.uniforms.uTime.value = windTime * windScale;
+        material.userData.shader.uniforms.uWindStrength.value = params.windStrength * windScale;
+        material.userData.shader.uniforms.uTurbulence.value = params.turbulence;
+        material.userData.shader.uniforms.uShapeNoise.value = params.shapeNoise;
+        material.userData.shader.uniforms.uTextureNoise.value = params.textureNoise;
+      }
+
+      const positions = dustGeo.attributes.position.array;
+      for (let i = 0; i < activeDustCount; i++) {
+        const offset = i * 3;
+        let x = positions[offset];
+        let y = positions[offset + 1];
+        let z = positions[offset + 2];
+        const seed = dustSeeds[i];
+        x += Math.sin(windTime * .19 + seed * 18) * dt * .045 * params.moteFloatSpeed;
+        y += Math.cos(windTime * .14 + seed * 27) * dt * .034 * params.moteFloatSpeed;
+        z += Math.sin(windTime * .11 + seed * 41) * dt * .028 * params.moteFloatSpeed;
+        if (moteMotion.vortex > .001) {
+          const radius = Math.max(.001, Math.hypot(x, y));
+          const nx = x / radius, ny = y / radius;
+          const radialError = radius - params.moteVortexRadius;
+          const pull = radialError * params.moteVortexStrength * moteMotion.vortex;
+          const spin = params.moteVortexSpin * moteMotion.vortex * (.65 + seed * .7);
+          x += (-nx * pull - ny * spin) * dt;
+          y += (-ny * pull + nx * spin) * dt;
+        } else {
+          x += (dustHomePositions[offset] - x) * dt * .045;
+          y += (dustHomePositions[offset + 1] - y) * dt * .045;
+          z += (dustHomePositions[offset + 2] - z) * dt * .035;
+        }
+        if (Math.abs(x) > 10.5) x *= -.92;
+        if (Math.abs(y) > 6.4) y *= -.92;
+        if (z > 7) z = -5;
+        if (z < -5.5) z = 6.5;
+        positions[offset] = x;
+        positions[offset + 1] = y;
+        positions[offset + 2] = z;
+      }
+      dustGeo.attributes.position.needsUpdate = true;
+      dust.position.z = moteMotion.lift * params.moteLiftDistance + moteMotion.exit * params.exitDistance;
+      dust.rotation.x = THREE.MathUtils.degToRad(-easedCameraPointer.y * params.cursorTiltStrength * params.moteTiltFollow);
+      dust.rotation.y = THREE.MathUtils.degToRad(easedCameraPointer.x * params.cursorTiltStrength * params.moteTiltFollow);
+      dust.rotation.z = Math.sin(elapsed * .08) * .025 + moteMotion.vortex * elapsed * params.moteVortexSpin * .08;
+
+      const tiltBlend = 1 - Math.exp(-dt * params.cursorTiltEase);
+      easedCameraPointer.x += (pointer.sx - easedCameraPointer.x) * tiltBlend;
+      easedCameraPointer.y += (pointer.sy - easedCameraPointer.y) * tiltBlend;
+      const easedTiltX = Math.sign(easedCameraPointer.x) * smoothstep(0, 1, Math.abs(easedCameraPointer.x));
+      const easedTiltY = Math.sign(easedCameraPointer.y) * smoothstep(0, 1, Math.abs(easedCameraPointer.y));
+      cameraTarget.set(0, 0, -1.5);
+      cameraOrbit.set(
+        THREE.MathUtils.degToRad(params.cameraPitch - easedTiltY * params.cursorTiltStrength),
+        THREE.MathUtils.degToRad(params.cameraYaw + easedTiltX * params.cursorTiltStrength),
+        0,
+        'YXZ'
+      );
+      cameraOffset.set(0, .15, params.cameraDistance).applyEuler(cameraOrbit);
+      camera.position.copy(cameraTarget).add(cameraOffset);
+      camera.lookAt(cameraTarget);
+      camera.rotateZ(THREE.MathUtils.degToRad(params.cameraRoll));
+      if (params.dofEnabled) composer.render();
+      else renderer.render(scene, camera);
+
+      perfElapsed += dt;
+      perfFrames++;
+      if (perfElapsed >= 1) {
+        const measuredFps = perfFrames / perfElapsed;
+        fpsEl.textContent = Math.round(measuredFps);
+        if (params.adaptive) {
+          const target = Math.min(params.fpsLimit, 60);
+          const previousScale = adaptiveScale;
+          adaptiveLowSamples = measuredFps < target - 7 ? adaptiveLowSamples + 1 : 0;
+          if (adaptiveLowSamples >= 3) {
+            adaptiveScale = Math.max(.45, adaptiveScale - .08);
+            adaptiveLowSamples = 0;
+          }
+          if (Math.abs(previousScale - adaptiveScale) > .001) {
+            renderer.setPixelRatio(Math.min(devicePixelRatio * adaptiveScale, 2.5));
+            renderer.setSize(innerWidth, innerHeight, false);
+            composer.setPixelRatio(renderer.getPixelRatio());
+            composer.setSize(innerWidth, innerHeight);
+          }
+        }
+        perfElapsed = 0;
+        perfFrames = 0;
+      }
+    }
+
+    addEventListener('resize', () => {
+      camera.aspect = innerWidth / innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setPixelRatio(Math.min(devicePixelRatio * adaptiveScale, 2.5));
+      renderer.setSize(innerWidth, innerHeight);
+      composer.setPixelRatio(renderer.getPixelRatio());
+      composer.setSize(innerWidth, innerHeight);
+    });
+
+    animate();
+  </script>
+</body>
+</html>

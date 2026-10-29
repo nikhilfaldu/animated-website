@@ -25,3 +25,5 @@ npm run dev
 | `codrops-cinematic-scroll/` | Codrops cinematic 3D scroll demos — shader cylinder carousel + cyberpunk city camera scroll (React, Vite, R3F, GSAP) |
 | `chronos/` | CHRONOS scroll-driven time-machine journey through historical eras (three.js, GSAP, Lenis via CDN; Vite dev server) |
 | `verdant/` | Verdant — scroll-driven WebGL film of one tree through a season, pure GLSL, no libraries (run `python serve.py` inside the folder) |
+| `fizzi-soda-brand/` | Fizzi soda landing page with floating 3D cans and scroll animations (Next.js, R3F, GSAP; content from Prismic CMS, needs internet on build) |
+| `jungle-cursor-canopy/` | Procedural jungle canopy whose leaves bend away from the cursor (Vite, Three.js, GSAP) |
